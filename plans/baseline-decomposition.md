@@ -1,6 +1,9 @@
 # Plan — decompose `baseline-bluefin` into the layered `baseline-*` family
 
-> **Why:** [`../decisions/0001-baseline-layer-decomposition.md`](../decisions/0001-baseline-layer-decomposition.md).
+> **Why:** [`../decisions/0001-baseline-layer-decomposition.md`](../decisions/0001-baseline-layer-decomposition.md)
+> (the decomposition) and [`../decisions/0002-multi-distro-multi-de.md`](../decisions/0002-multi-distro-multi-de.md)
+> (multi-distro/multi-DE + the platform contract). Stage-by-stage guide:
+> [`../ARCHITECTURE.md`](../ARCHITECTURE.md).
 > This file is the executable *how*: per-repo diffs, phase order, and the deletion gate.
 >
 > **Not loop-tracked.** Deliberately kept out of every `BACKLOG.md` — the operator drives
@@ -11,6 +14,9 @@
 ## Status
 
 - Design complete 2026-07-20. Q1 resolved (same key — see below); Q2–Q9 resolved in ADR 0001.
+- Scope broadened the same day by ADR 0002: **every layer is multi-distro and multi-DE**, and
+  Q5's "duplicate the detection probe" answer is **reversed** in favour of a shared
+  `platform.sh` contract owned by `baseline-shell`. Phases 2/3/4/6 below reflect this.
 - **No phase has been executed yet.** `baseline-bluefin` is untouched and fully functional.
 
 ## Resolved: the Bitwarden item-name question
@@ -83,13 +89,18 @@ bluefin pointer until Phase 6.
 - `git config --global` wiring in `bootstrap.sh`: identity guard, gh credential helper via
   `command -v gh`, `github:` insteadOf.
 - `hermes-aliases.sh`, sourced from both rc entrypoints.
-- Atomic-host detection + `apps/Brewfile.cli` brew branch in `apps/baseline.sh`:
-  `[ -e /run/ostree-booted ]` → require brew (ublue images ship it) and
-  `brew bundle --file=apps/Brewfile.cli` (formulae only — the current apt roster
-  equivalents plus bluefin's dev formulae: atuin, bat, eza, fd, gh, uv, terraform,
-  oci-cli, …); else the existing apt/dnf/pacman path.
-- Document the **guaranteed roster** and assert it on both branches.
-- Tests.
+- **`platform.sh`** — the shared detection contract (`PLATFORM_FAMILY`, `PLATFORM_PKG`,
+  `PLATFORM_ATOMIC`, `PLATFORM_GUI`, `PLATFORM_DE`) per
+  [`../decisions/0002-multi-distro-multi-de.md`](../decisions/0002-multi-distro-multi-de.md).
+  **Lands first in this phase** — Phases 3, 4 and 6 all consume it.
+- `apps/Brewfile.cli` brew branch in `apps/baseline.sh`, dispatched on `PLATFORM_ATOMIC` /
+  `PLATFORM_PKG`: atomic → brew (ublue images ship it), formulae only (the current apt roster
+  equivalents plus bluefin's dev formulae: atuin, bat, eza, fd, gh, uv, terraform, oci-cli, …);
+  else the existing apt/dnf/pacman path, extended to `zypper`.
+- Document the **guaranteed roster** and assert it on **every** package-manager branch — not
+  just the two, or the roster stops being a guarantee.
+- Tests, including a **headless** path (a Debian LXC is the representative fleet target, not
+  the laptop) and a `PLATFORM_FAMILY=unknown` degrade-cleanly case.
 
 Nothing here touches `baseline-bluefin` yet.
 
@@ -99,15 +110,17 @@ Port the dconf engine + `gnome/*.ini` + `DCONF_MAP` into a new `baseline-desktop
 (`status` / `install` / `push`, GNOME branch). Add `autostart/` handling. Write
 `decisions/0001` (ownership matrix + restore order). Rewrite `CLAUDE.md`/`README.md` for
 the mixed data classification and add the rebase runbook. Port the two dconf bats files +
-harness.
+harness. Gate the whole layer on `PLATFORM_GUI` / `PLATFORM_DE` — headless or
+untracked-DE targets **skip and report**, never error.
 
 ### Phase 4 — `baseline-apps`
 
 Scaffold via the `new-repo` skill (`--category baseline`). Profiles
 (`common` / `laptop` / `handheld` stub); explicit `--profile <name>` persisted to
 `~/.config/baseline-apps/profile`. Flatpak install/status/push, diffing against the
-selected profile only. `layered.list` residue check against `rpm-ostree status --json`,
-warning on drift both ways. Structural no-formula lint. Tests.
+selected profile only. Per-family **native residue** check (`rpm-ostree status --json`,
+`apt-mark showmanual`, `pacman -Qe`, …) warning on drift both ways — the reconstruction gap
+is not rpm-ostree-specific. Structural no-formula lint. Gate on `PLATFORM_GUI`. Tests.
 
 ### Phase 5 — fleet
 
@@ -117,10 +130,14 @@ degradation) + pytest. Update the fleet skill's `SKILL.md` command table.
 
 ### Phase 6 — `baseline-setup`
 
-New **public** repo (`new-repo` skill). One orchestrator script, phase order per ADR 0001,
-no layer logic of its own; the private-clone step is the structural security gate. Bats
-tests (mock git/bw). Update `baseline-access`'s `print_next_step` to point here.
-Public-repo discipline: only repo *names* appear, never values.
+One orchestrator script, phase order per ADR 0001, no layer logic of its own; the
+private-clone step is the structural security gate. Sources `baseline-shell/platform.sh` to
+decide which stages apply (headless targets skip L1b/L1c). Bats tests (mock git/bw). Update
+`baseline-access`'s `print_next_step` to point here.
+
+**Flip this repo to public** (`gh repo edit juangalt/baseline-setup --visibility public`) as
+part of this phase — it is private today because it carries only the migration plan. Once
+public, the discipline is `baseline-access`'s: repo *names* only, never values.
 
 ### Phase 7 — laptop cutover validation *(the gate for deletion)*
 

@@ -28,10 +28,23 @@ This repo currently carries **documentation only**:
 
 | Path | Role |
 |---|---|
+| `ARCHITECTURE.md` | **Read first.** Every stage, what it does, skip rules, the platform contract, invariants |
 | `decisions/0001-baseline-layer-decomposition.md` | Why the monolith is being decomposed; the layer table; the founding decision for this repo |
+| `decisions/0002-multi-distro-multi-de.md` | Multi-distro/multi-DE as a constraint on every layer; reverses 0001's Q5 detection answer |
 | `plans/baseline-decomposition.md` | The executable how — decomposition map, test-migration table, 8 phases, deletion gate |
 
 `baseline-bluefin` is still live and fully functional; nothing has been migrated yet.
+
+## Non-negotiables
+
+- **Multi-distro, multi-DE, headless-first.** Debian/Fedora/Arch/SUSE + atomic variants;
+  GNOME/KDE/Cosmic as peers; **no desktop** is the most common case. Graphical layers detect
+  and skip — never fail — on headless targets.
+- **Detection is a contract, not a copy.** `baseline-shell/platform.sh` exports
+  `PLATFORM_FAMILY` / `PLATFORM_PKG` / `PLATFORM_ATOMIC` / `PLATFORM_GUI` / `PLATFORM_DE`.
+  Consumers source it. Reimplementing a probe locally is the drift this design exists to stop.
+- **Unsupported degrades, never crashes.** A new distro must never be a prerequisite for
+  bootstrapping a machine at all.
 
 ## Notes
 

@@ -17,8 +17,15 @@ laptop. That blocked rebasing between Universal Blue siblings, and meant an LXC 
 shell + CLI tools couldn't consume it. It is being decomposed into single-responsibility
 layers, with this repo as the orchestrator.
 
-Full rationale: [`decisions/0001-baseline-layer-decomposition.md`](decisions/0001-baseline-layer-decomposition.md).
-Executable how: [`plans/baseline-decomposition.md`](plans/baseline-decomposition.md).
+**Start here:** [`ARCHITECTURE.md`](ARCHITECTURE.md) — what each stage does, in order, with the
+skip rules and invariants.
+
+| Document | Answers |
+|---|---|
+| [`ARCHITECTURE.md`](ARCHITECTURE.md) | What each stage does and why the boundaries sit where they do |
+| [`decisions/0001`](decisions/0001-baseline-layer-decomposition.md) | Why decompose the monolith at all |
+| [`decisions/0002`](decisions/0002-multi-distro-multi-de.md) | Multi-distro/multi-DE; the platform-detection contract |
+| [`plans/baseline-decomposition.md`](plans/baseline-decomposition.md) | The migration sequence and its deletion gate |
 
 ## The layers it orchestrates
 
@@ -27,9 +34,9 @@ Executable how: [`plans/baseline-decomposition.md`](plans/baseline-decomposition
 | `app-fleet-control` + `content-fleet-policy` | L0 | SSH policy, hostname + Tailscale sync, recovery key |
 | `baseline-access` | L0.5 | **Public.** Zero-credential git-readiness |
 | **`baseline-setup`** *(here)* | orchestrator | Runs the others in order |
-| `baseline-shell` | L1 | Shell/dotfiles/tmux + **all CLI tooling** |
-| `baseline-desktop` | L1 | Per-DE session state (GNOME dconf; KDE/Cosmic archives) |
-| `baseline-apps` | L1 | **GUI apps only** — flatpak-primary, brew casks secondary |
+| `baseline-shell` | L1a | Shell/dotfiles/tmux + **all CLI tooling** + `platform.sh` |
+| `baseline-apps` | L1b | **GUI apps only** — flatpak-primary. Skips itself when headless |
+| `baseline-desktop` | L1c | Per-DE session state (GNOME dconf; KDE/Cosmic archives). Skips itself when headless |
 | `meta-ai-dev` | L2 | Claude carry-down, skills, statusline |
 
 ## Planned front door
@@ -41,7 +48,11 @@ git clone <baseline-setup> && ./baseline-setup.sh
 Phase order: `baseline-access` → clone private repos over SSH → `baseline-shell` →
 `baseline-apps` → `baseline-desktop` → `meta-ai-dev`.
 
-Two properties are load-bearing:
+**Every layer is multi-distro and multi-DE.** Debian, Fedora, Arch, SUSE, and atomic/ostree
+variants; GNOME, KDE, and Cosmic as peers — and **no desktop at all** as the most common case,
+since most of the fleet is headless LXCs. Graphical layers detect and skip rather than fail.
+
+Three properties are load-bearing:
 
 - **The security gate is structural, not cryptographic.** Phase 1 is public and needs no
   credentials; everything past it requires the Bitwarden-derived GitHub key. There is no
@@ -50,6 +61,8 @@ Two properties are load-bearing:
   `fleet control-node bootstrap` makes a machine privileged (all services, can deploy to
   others). Right for a personal laptop, wrong for an LXC or throwaway box — those are enrolled
   with `fleet host add` from an existing control node instead.
+- **Headless targets skip the graphical stages by detection, not by error.** A bring-up that
+  dies partway through a flatpak call on a container is a bug, not a limitation.
 
 ## Build / run / test
 

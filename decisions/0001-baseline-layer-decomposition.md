@@ -1,6 +1,8 @@
 # 0001 — Decompose `baseline-bluefin` into DE-agnostic baseline layers
 
-- **Status:** accepted
+- **Status:** accepted — scope broadened and the atomic-detection sub-decision **reversed** by
+  [`0002`](0002-multi-distro-multi-de.md) (multi-distro/multi-DE; detection becomes a shared
+  contract owned by `baseline-shell`, not duplicated per repo)
 - **Date:** 2026-07-20
 - **Amends (cross-repo):** `meta-ai-dev/decisions/0002-fleet-setup-layers.md` (adds an
   orchestrator and an L0.5 rung to the layer model) and
@@ -91,6 +93,11 @@ Load-bearing sub-decisions:
   sourcing a `baseline-shell` file, or depending on an interactive-session env var that
   install-time shells do not have). Add it to `role.sh` only when an interactive consumer
   wants it.
+  > **⚠ Reversed by [`0002`](0002-multi-distro-multi-de.md).** This held for *one* probe. Once
+  > the target surface broadened beyond atomic images, the real requirement became five facts
+  > (family, package manager, atomicity, GUI, DE) consumed by three repos — duplicated, they
+  > drift, and a drifted answer silently mis-installs rather than failing. Detection now lives
+  > in `baseline-shell/platform.sh` as a shared name-and-value contract.
 - **chezmoi is dropped.** After decomposition the chezmoi-managed inventory is ~4 files,
   none templated (zero `.tmpl` files exist). `baseline-shell`'s existing marker-block +
   symlink approach covers it, and adopting chezmoi would force a new dependency onto every
