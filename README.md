@@ -25,6 +25,7 @@ skip rules and invariants.
 | [`ARCHITECTURE.md`](ARCHITECTURE.md) | What each stage does and why the boundaries sit where they do |
 | [`decisions/0001`](decisions/0001-baseline-layer-decomposition.md) | Why decompose the monolith at all |
 | [`decisions/0002`](decisions/0002-multi-distro-multi-de.md) | Multi-distro/multi-DE; the platform-detection contract |
+| [`decisions/0003`](decisions/0003-component-tui-and-manifest-contract.md) | The component picker (gum TUI) + per-layer manifest contract |
 | [`plans/baseline-decomposition.md`](plans/baseline-decomposition.md) | The migration sequence and its deletion gate |
 
 ## The layers it orchestrates
@@ -42,11 +43,17 @@ skip rules and invariants.
 ## Planned front door
 
 ```bash
-git clone <baseline-setup> && ./baseline-setup.sh
+git clone <baseline-setup> && ./baseline-setup.sh          # gum picker → choose components → install
+./baseline-setup.sh --profile laptop --yes                # headless/fleet: replay a saved selection
 ```
 
-Phase order: `baseline-access` → clone private repos over SSH → `baseline-shell` →
-`baseline-apps` → `baseline-desktop` → `meta-ai-dev`.
+Bare run launches a **gum** checklist of the components each layer *declares* in its own
+`manifest.toml` (grouped by layer, GUI components auto-hidden when headless). Your picks are
+written to a selection file and handed to a single apply engine that runs the stages in order:
+`baseline-access` → clone private repos over SSH → `baseline-shell` → `baseline-apps` →
+`baseline-desktop` → `meta-ai-dev`. The `--profile … --yes` path feeds the *same* engine with no
+TUI, so interactive and automated installs can't drift. `baseline-setup` never hardcodes what a
+layer contains — it renders manifests ([`decisions/0003`](decisions/0003-component-tui-and-manifest-contract.md)).
 
 **Every layer is multi-distro and multi-DE.** Debian, Fedora, Arch, SUSE, and atomic/ostree
 variants; GNOME, KDE, and Cosmic as peers — and **no desktop at all** as the most common case,

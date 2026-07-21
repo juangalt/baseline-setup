@@ -5,8 +5,9 @@ and are not; the reasons are here so a future edit doesn't "simplify" something 
 
 **The one-paragraph model.** A machine is assembled by a fixed sequence of independent,
 idempotent layers. Each layer owns exactly one kind of state, can be run on its own, and is
-safe to re-run. `baseline-setup` runs them in order and contributes no state of its own. Every
-layer must work on any supported distro and any supported desktop — or explicitly skip itself.
+safe to re-run. `baseline-setup` picks which components run and applies them in order; the only
+state it owns is the selection file recording that choice. Every layer must work on any supported
+distro and any supported desktop — or explicitly skip itself.
 
 ## Design goals
 
@@ -78,14 +79,19 @@ that dependency *is* the security boundary — see "Invariants" below.
 
 ### Orchestration (`baseline-setup`) · this repo
 
-**What it does.** Detects the platform, then runs the stages in order, passing the detection results
-down. Holds **no layer logic of its own**.
+**What it does.** Detects the platform, reads each layer's component **manifest**, renders a picker,
+and applies the selection by running the stages in order. It is a picker + sequencer, not a
+sequencer alone — but it holds **no hardcoded knowledge of what any layer contains**. See
+§ Component manifest contract below.
 
-**The boundary.** If a change here starts wiring shell config, installing packages, or touching
-dconf, it belongs in a sibling repo. The moment `baseline-setup` knows *how* a layer works rather
-than *whether and when* to run it, the decomposition has failed.
+**The boundary.** If a change here names a specific component (`tmux`, a flatpak id, a dconf key) or
+wires shell/packages/dconf directly, it belongs in a sibling repo. `baseline-setup` may know the
+manifest *schema* and the stage *order*; the moment it knows a layer's *contents*, the decomposition
+has failed.
 
-**Leaves behind.** Nothing. It is a sequencer.
+**Leaves behind.** A selection file (`~/.config/baseline-setup/selected.toml`, or a named
+`--profile`) — the reproducible record of what this machine chose. Nothing else; it installs nothing
+itself, it invokes each layer's own installer.
 
 ---
 
@@ -193,6 +199,38 @@ couple. That held for one probe. It does not hold for five facts consumed by thr
 copies drift and a wrong answer silently mis-installs. Rationale:
 [`decisions/0002`](decisions/0002-multi-distro-multi-de.md).
 
+## The component manifest contract
+
+The picker is a **generic renderer over per-layer manifests** — the same schema-not-contents
+indirection as the platform contract. Full rationale:
+[`decisions/0003`](decisions/0003-component-tui-and-manifest-contract.md).
+
+**Each consumable layer ships `manifest.toml`** at its repo root, declaring its selectable
+components — metadata only, never install logic:
+
+| Field | Meaning |
+|---|---|
+| `id` | Stable component key, passed back to the layer's installer |
+| `label` / `desc` | What the picker shows |
+| `default` | Ticked on first run? |
+| `requires` | Predicate over `platform.sh` vars (`gui`, `atomic`, `family`) — auto-hides when unmet |
+| `needs` / `conflicts` | Other component ids |
+
+**Each layer's installer accepts `--components <id,…>`** — it already owns *how*; this is the one new
+input. The contract is two halves, both owned by the layer: it *declares* its ids and it *consumes*
+its ids. `baseline-setup` passes each layer only the ids from that layer's own manifest.
+
+**One apply engine, two front-ends** — this is what makes TUI-first safe:
+
+```
+baseline-setup                    # gum picker → writes selection → apply engine
+baseline-setup --profile laptop --yes   # apply engine directly (headless/fleet, no gum, no TTY)
+```
+
+The TUI has no install path of its own; it produces a selection file and hands it to the same engine
+`--profile` uses. gum is fetched (checksum-verified) only on the interactive path. No TTY and no
+`--profile` → a clear error, never a hang.
+
 ## Target profiles
 
 | Target | L0 | L0.5 | L1a | L1b | L1c | L2 |
@@ -209,8 +247,10 @@ easier to remember than the rule.
 
 1. **Every layer is idempotent and independently runnable.** Re-running must converge, not
    accumulate. *Fails as:* duplicated rc blocks, growing config files.
-2. **`baseline-setup` holds no layer logic.** *Fails as:* the monolith reassembling itself in a new
-   location.
+2. **`baseline-setup` holds no *hardcoded layer knowledge*.** It renders each layer's declared
+   manifest; it never names a layer's components itself. A component id hardcoded in `baseline-setup`
+   is the tell. *Fails as:* the monolith reassembling itself inside the menu — every layer change
+   forcing an orchestrator change. (See § Component manifest contract; [`decisions/0003`](decisions/0003-component-tui-and-manifest-contract.md).)
 3. **`baseline-access` stays small and public.** *Fails as:* an entry point nobody can realistically
    audit before piping into a shell.
 4. **The security gate is structural, not cryptographic.** Everything past L0.5 requires the
@@ -232,6 +272,7 @@ easier to remember than the rule.
 |---|---|
 | Why decompose at all; the layer table | [`decisions/0001`](decisions/0001-baseline-layer-decomposition.md) |
 | Multi-distro / multi-DE; the platform contract | [`decisions/0002`](decisions/0002-multi-distro-multi-de.md) |
+| The component picker; manifest contract; gum + apply engine | [`decisions/0003`](decisions/0003-component-tui-and-manifest-contract.md) |
 | dconf vs SaveDesktop ownership | `baseline-desktop/decisions/0001` |
 | Migration sequence and deletion gate | [`plans/baseline-decomposition.md`](plans/baseline-decomposition.md) |
 | Layer model in the wider workspace | `meta-ai-dev/decisions/0002`, `0003` |

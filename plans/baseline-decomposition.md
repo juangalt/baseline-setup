@@ -101,6 +101,9 @@ bluefin pointer until Phase 6.
   just the two, or the roster stops being a guarantee.
 - Tests, including a **headless** path (a Debian LXC is the representative fleet target, not
   the laptop) and a `PLATFORM_FAMILY=unknown` degrade-cleanly case.
+- **`manifest.toml`** declaring this layer's selectable components (zsh-default, tmux+starship,
+  hermes-aliases, CLI roster tiers, …) and **`bootstrap.sh --components <ids>`** consuming
+  them, per [`../decisions/0003-component-tui-and-manifest-contract.md`](../decisions/0003-component-tui-and-manifest-contract.md).
 
 Nothing here touches `baseline-bluefin` yet.
 
@@ -111,7 +114,8 @@ Port the dconf engine + `gnome/*.ini` + `DCONF_MAP` into a new `baseline-desktop
 `decisions/0001` (ownership matrix + restore order). Rewrite `CLAUDE.md`/`README.md` for
 the mixed data classification and add the rebase runbook. Port the two dconf bats files +
 harness. Gate the whole layer on `PLATFORM_GUI` / `PLATFORM_DE` — headless or
-untracked-DE targets **skip and report**, never error.
+untracked-DE targets **skip and report**, never error. Ship `manifest.toml` (per-DE restore,
+autostart entries; all `requires = { gui = true }`) + `--components`, per ADR 0003.
 
 ### Phase 4 — `baseline-apps`
 
@@ -120,7 +124,9 @@ Scaffold via the `new-repo` skill (`--category baseline`). Profiles
 `~/.config/baseline-apps/profile`. Flatpak install/status/push, diffing against the
 selected profile only. Per-family **native residue** check (`rpm-ostree status --json`,
 `apt-mark showmanual`, `pacman -Qe`, …) warning on drift both ways — the reconstruction gap
-is not rpm-ostree-specific. Structural no-formula lint. Gate on `PLATFORM_GUI`. Tests.
+is not rpm-ostree-specific. Structural no-formula lint. Gate on `PLATFORM_GUI`. Ship
+`manifest.toml` (profiles + notable individual apps as components, all `requires = { gui = true }`)
++ `--components`, per ADR 0003. Tests.
 
 ### Phase 5 — fleet
 
@@ -128,12 +134,25 @@ is not rpm-ostree-specific. Structural no-formula lint. Gate on `PLATFORM_GUI`. 
 from bluefin ADR 0004: `hostnamectl` then `tailscale set --hostname`, non-fatal
 degradation) + pytest. Update the fleet skill's `SKILL.md` command table.
 
-### Phase 6 — `baseline-setup`
+### Phase 6 — `baseline-setup` (the picker + apply engine)
 
-One orchestrator script, phase order per ADR 0001, no layer logic of its own; the
-private-clone step is the structural security gate. Sources `baseline-shell/platform.sh` to
-decide which stages apply (headless targets skip L1b/L1c). Bats tests (mock git/bw). Update
-`baseline-access`'s `print_next_step` to point here.
+Per ADR 0003, `baseline-setup` becomes a component picker over per-layer manifests, not a
+bare sequencer. No hardcoded layer knowledge; the private-clone step is the structural
+security gate. Sources `baseline-shell/platform.sh` to gate stages and components (headless
+skips L1b/L1c and hides `requires.gui` components). Build, in order:
+
+- **Manifest reader** — parse each layer's `manifest.toml`, filter components through
+  `platform.sh`.
+- **Apply engine** — invoke each layer's installer with `--components <ids>` in stage order.
+  The single install path; both front-ends below feed it.
+- **gum picker** — checklist grouped by layer, seeded from `default` + any existing
+  selection; writes `~/.config/baseline-setup/selected.toml` (or `--profile <name>`). gum
+  fetched checksum-verified, interactive path only.
+- **Non-interactive front-end** — `--profile <name> --yes` runs the apply engine with no gum,
+  no TTY. No TTY and no `--profile` → clear error, never a hang.
+- Bats tests: mock manifests, `--profile --yes` golden run, headless auto-hide, non-TTY
+  guard, and git/bw mocks for the clone step. Update `baseline-access`'s `print_next_step` to
+  point here.
 
 **Flip this repo to public** (`gh repo edit juangalt/baseline-setup --visibility public`) as
 part of this phase — it is private today because it carries only the migration plan. Once
