@@ -170,6 +170,15 @@ reinstalling doesn't mean reconfiguring from scratch.
   around is a loaded footgun whose only use is to clobber the curated keys.
 - **Where both apply: blobs restore first, code reapplies last.** Code wins on tracked keys.
 
+**v1 is GNOME-only; other DEs are additive later** (ADR 0004 D2). Adding a DE touches only
+`baseline-desktop` — a `PLATFORM_DE` value, a `requires = { de = [...] }`-gated component, and a
+backend implementing `status`/`install`/`push`; the picker, apply engine, and `selected.toml` are
+unchanged. Each DE splits the same two ways as GNOME (per-key store → code; layout/asset blob →
+SaveDesktop or a curated file-copy list). The dconf/GSettings family (Cinnamon/MATE/Budgie) reuses
+the GNOME engine with a new schema map; Cosmic tracks its RON config files directly; KDE uses
+`kwriteconfig`/`plasma-apply-*` for the bulk with a thin layout blob. The concrete per-DE design
+lives in `baseline-desktop/decisions/0001` § "Extending to other DEs".
+
 **Why cross-DE pollution is documented but not fixed.** Sharing one `$HOME` across desktops bleeds
 `gtk-*` config, `mimeapps.list`, portal backend selection, and keyring choice. It is cosmetic and
 annoying, not destructive, and the fix (per-DE accounts) is worse than the problem — it recreates
