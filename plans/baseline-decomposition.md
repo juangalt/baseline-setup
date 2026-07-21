@@ -20,6 +20,10 @@
 - ADR 0003 (same day) makes `baseline-setup` a **component picker over per-layer manifests**
   with one apply engine; the five interfaces this needs are specified in the **appendix**, and
   each phase carries a **Done when** acceptance line.
+- Contract gaps closed by ADR 0004 (2026-07-20, from a pre-implementation review): TOML+python3,
+  GNOME-first, install-only+toggle semantics, Hermes dropped, L2 pseudo-component, static layer
+  roster, `de=` predicate, empty-selection, `--selection` rename. C1–C5 and the phases below reflect
+  it.
 - **No phase has been executed yet.** `baseline-bluefin` is untouched and fully functional.
   Cross-repo doc reconciliation (`baseline-desktop`'s CLAUDE/README, `meta-ai-dev`'s
   `layered-bringup.md`) is deliberately deferred to the phase that ships each change — rewriting
@@ -37,6 +41,12 @@ Fingerprint comparison on 2026-07-20: **the same key.**
 change in `baseline-access` plus its bats fixture; lands in Phase 1. Item names are not
 secrets (the repo is public and already carries one), but the change is deliberate.
 
+**Lifecycle (ADR 0004 D3):** the *old* vault item `ssh-access service key: github` is **retained
+until the Phase 8 tombstone**, then deleted — `baseline-bluefin` and the pinned `v0.1.0` one-liner
+both still fetch the old name and stay live until then, so removing it early would break the live
+zero-credential path. The script file is renamed `baseline-github.sh` → `baseline-access.sh` at
+`v0.2.0`; `v0.1.0`'s raw path is immutable, so the bluefin-era one-liner keeps resolving.
+
 ## Decomposition map
 
 Confirmed against the live trees, not just the design sketch.
@@ -45,7 +55,7 @@ Confirmed against the live trees, not just the design sketch.
 |---|---|---|
 | `gnome/*.ini` + `DCONF_MAP` + selective dconf engine (`install_dconf`, `push_dconf`, `classify_dconf_drift`, `_generate_updated_dconf_ini`) | `baseline-desktop` | The **engine** moves, not just the inis |
 | `home/dot_gitconfig` | `baseline-shell` | Becomes idempotent `git config --global` calls, not a tracked file. Hardcoded `/home/linuxbrew/...` path becomes `command -v gh` |
-| `home/dot_bashrc.d/hermes-agent`, `private_fish/conf.d/hermes-agent.fish` | `baseline-shell` | New `hermes-aliases.sh`, sourced from `bashrc.sh`/`zshrc.sh`; fish parity optional |
+| `home/dot_bashrc.d/hermes-agent`, `private_fish/conf.d/hermes-agent.fish` | **DROP** (ADR 0004 D4a) | Hermes is a service/agent concern (agent hosts via `service-friday`), not baseline shell tooling — not carried by every machine |
 | `home/dot_{bash,zsh}*`, `starship.toml`, stock fish config | **DROP** | `baseline-shell`'s marker-block + symlink wiring already covers these; its `starship.toml` is the host-aware superset of bluefin's static copy (verified by diff) |
 | `home/private_dot_claude/*` | **DROP** | L2 territory; `meta-ai-dev/install.sh` already owns statusline/settings |
 | `autostart/com.seafile.Client.desktop` | `baseline-desktop` `autostart/` | DE-neutral XDG autostart, applied by its install command |
@@ -87,18 +97,21 @@ Follow `meta-ai-dev/references/repo-rename-procedure.md` exactly (clean tree, di
 `v0.1.0` raw-URL one-liner alive — this is the only public entry point, and the
 unbootstrappable-window risk lives here and nowhere else.
 
-Also lands: the Bitwarden item-name standardization (above). Keep `print_next_step`'s
-bluefin pointer until Phase 6.
+Also lands (ADR 0004 D3): the Bitwarden item-name standardization to `fleet-policy:keys/service/github`
+(the old item is **kept**, deleted only at Phase 8); rename the script `baseline-github.sh` →
+`baseline-access.sh`; re-pin the README one-liner to `v0.2.0`. Keep `print_next_step`'s bluefin
+pointer until Phase 6.
 
-**Done when:** `git clone` of the new name works over both HTTPS and SSH; the pinned old
-raw-URL one-liner still resolves via redirect; `baseline-access` tests green; a workspace grep
-for `baseline-github` returns only history/devlogs.
+**Done when:** `git clone` of the new name works over HTTPS and SSH; **the pinned `v0.1.0`
+one-liner still provisions a scratch box end-to-end** (redirect + old vault item both live), not just
+resolves; `baseline-access` tests green; a workspace grep for `baseline-github` returns only devlogs,
+archived plans, and deliberate "renamed from" historical mentions (`meta-ai-dev/BACKLOG.md` and the
+b62 plans are in the rewrite worklist alongside the repo lists).
 
 ### Phase 2 — `baseline-shell` absorb
 
 - `git config --global` wiring in `bootstrap.sh`: identity guard, gh credential helper via
   `command -v gh`, `github:` insteadOf.
-- `hermes-aliases.sh`, sourced from both rc entrypoints.
 - **`platform.sh`** — the shared detection contract (`PLATFORM_FAMILY`, `PLATFORM_PKG`,
   `PLATFORM_ATOMIC`, `PLATFORM_GUI`, `PLATFORM_DE`) per
   [`../decisions/0002-multi-distro-multi-de.md`](../decisions/0002-multi-distro-multi-de.md).
@@ -107,12 +120,18 @@ for `baseline-github` returns only history/devlogs.
   `PLATFORM_PKG`: atomic → brew (ublue images ship it), formulae only (the current apt roster
   equivalents plus bluefin's dev formulae: atuin, bat, eza, fd, gh, uv, terraform, oci-cli, …);
   else the existing apt/dnf/pacman path, extended to `zypper`.
-- Document the **guaranteed roster** and assert it on **every** package-manager branch — not
-  just the two, or the roster stops being a guarantee.
+- Document the **guaranteed roster**, assert it on **every** package-manager branch, and mark it
+  **non-selectable** (always installed — a component you could untick would void the guarantee; ADR
+  0004 D4). Note `apps/baseline.sh` today `exit 1`s on an unknown package manager — the degrade-clean
+  requirement is a deliberate **behavior change**, not a preserved one.
+- Keep `--apps` as a working **alias** through Phase 8 (fleet bring-up, `layered-bringup.md`, and the
+  provision handoff all call it today); gate this phase on a real headless `bootstrap.sh --dry-run` on
+  a Debian LXC.
 - Tests, including a **headless** path (a Debian LXC is the representative fleet target, not
   the laptop) and a `PLATFORM_FAMILY=unknown` degrade-cleanly case.
 - **`manifest.toml`** declaring this layer's selectable components (zsh-default, tmux+starship,
-  hermes-aliases, CLI roster tiers, …) and **`bootstrap.sh --components <ids>`** consuming
+  optional shell integrations, extra CLI tiers, …; the guaranteed roster is non-selectable) and
+  **`bootstrap.sh --components <ids>`** consuming
   them, per contract **C2**/**C3** in the appendix.
 
 Nothing here touches `baseline-bluefin` yet.
@@ -125,6 +144,7 @@ every package-manager branch; headless + unknown-family tests green.
 
 ### Phase 3 — `baseline-desktop`
 
+Clone the existing `baseline-desktop` repo into `~/code` (already scaffolded on GitHub — private).
 Port the dconf engine + `gnome/*.ini` + `DCONF_MAP` into a new `baseline-desktop.sh` CLI
 (`status` / `install` / `push`, GNOME branch). Add `autostart/` handling. Write
 `decisions/0001` (ownership matrix + restore order). Rewrite `CLAUDE.md`/`README.md` for
@@ -140,18 +160,19 @@ classification.
 
 ### Phase 4 — `baseline-apps`
 
-Scaffold via the `new-repo` skill (`--category baseline`). Profiles
-(`common` / `laptop` / `handheld` stub); explicit `--profile <name>` persisted to
-`~/.config/baseline-apps/profile`. Flatpak install/status/push, diffing against the
-selected profile only. Per-family **native residue** check (`rpm-ostree status --json`,
+Scaffold via the `new-repo` skill (`--category baseline`). Named app-sets
+(`common` / `laptop` / `handheld` stub) expressed as manifest components — the selected set lives in
+`selected.toml`, **not** a separate `~/.config/baseline-apps/profile` file (ADR 0004 D9). Flatpak
+install/status/push, diffing against the selected components only. Per-family **native residue** check (`rpm-ostree status --json`,
 `apt-mark showmanual`, `pacman -Qe`, …) warning on drift both ways — the reconstruction gap
 is not rpm-ostree-specific. Structural no-formula lint. Gate on `PLATFORM_GUI`. Ship
 `manifest.toml` (profiles + notable individual apps as components, all `requires = { gui = true }`)
 + `--components`, per contract C2/C3. Tests.
 
-**Done when:** `--profile laptop` installs the profile's flatpaks and no formulae (lint proves
-it); the native-residue check reports drift both ways on at least two package managers; a
-headless run is a clean no-op.
+**Done when:** the laptop app-set installs its flatpaks and no formulae (lint proves it); the
+native-residue check reports drift both ways on at least two package managers (mocked pm output); a
+headless run is a clean no-op. The app-set lives only as components in `selected.toml` — no separate
+`~/.config/baseline-apps/profile` file (ADR 0004 D9).
 
 ### Phase 5 — fleet
 
@@ -169,29 +190,38 @@ bare sequencer. No hardcoded layer knowledge; the private-clone step is the stru
 security gate. Sources `baseline-shell/platform.sh` to gate stages and components (headless
 skips L1b/L1c and hides `requires.gui` components). Build, in order:
 
-- **Bootstrap prefix** — print the L0 setup guidance (both paths; no enrolment), `git clone`
-  the public `baseline-access` repo and **run its script**, then clone the private repos. All
-  mandatory prerequisites, not components.
+- **Bootstrap prefix** — print the L0 setup guidance (both paths; no enrolment), ensure `python3`
+  is present (parser dep, ADR 0004 D1), `git clone` the public `baseline-access` repo and **run its
+  script**, then clone the private repos into `~/code/<repo>` (clone-if-absent; leave an existing
+  checkout untouched — no `git pull` against a possibly-dirty dev tree — and report which path was
+  taken). All mandatory prerequisites, not components.
 - **Manifest reader** — parse each layer's `manifest.toml`, filter components through
   `platform.sh`.
 - **Apply engine** — invoke each layer's installer with `--components <ids>` in stage order.
   The single install path; both front-ends below feed it.
 - **gum picker** — checklist grouped by layer, seeded from `default` + any existing
-  selection; writes `~/.config/baseline-setup/selected.toml` (or `--profile <name>`). gum
+  selection; writes `~/.config/baseline-setup/selected.toml` (or a named `--selection`). gum
   fetched checksum-verified, interactive path only.
-- **Non-interactive front-end** — `--profile <name> --yes` runs the apply engine with no gum,
-  no TTY. No TTY and no `--profile` → clear error, never a hang.
-- Bats tests: mock manifests, `--profile --yes` golden run, headless auto-hide, non-TTY
+- **Non-interactive front-end** — `--selection <name> --yes` runs the apply engine with no gum,
+  no TTY (flag renamed from `--profile`, ADR 0004 D9). No TTY and no `--selection` → clear error.
+- **L2 handling** — `meta-ai-dev` is one opt-in pseudo-component (ADR 0004 D5): default-on for
+  interactive/coding hosts, invoked as a bare `install.sh`, recorded in `selected.toml`, exempt from
+  the `--components` contract.
+- Bats tests: mock manifests, `--selection --yes` golden run, empty-selection skip, headless
+  auto-hide, non-TTY
   guard, and git/bw mocks for the clone step. Update `baseline-access`'s `print_next_step` to
   point here.
 
 Build against contracts **C2–C5** and the runtime sequence in the appendix.
 
-**Done when:** on a fresh box, bare `baseline-setup` clones the private repos, shows a picker
-with GUI components hidden on headless, and applies the selection in stage order; the *same*
-selection replayed via `--profile … --yes` produces a byte-identical install with no gum and no
-TTY; a non-TTY run with no `--profile` errors with the `--profile` hint instead of hanging; a
-component id grepped for in `baseline-setup`'s own source returns nothing (invariant 2).
+**Done when:** on a fresh box, bare `baseline-setup` clones the private repos, shows a picker with
+GUI components hidden on headless, and applies the selection in stage order; the *same* selection
+replayed via `--selection … --yes` produces an **identical apply plan** (the engine's ordered
+installer+components invocation list compares equal) with no gum and no TTY; a non-TTY run with no
+`--selection` errors with the `--selection` hint instead of hanging; a fully-deselected layer is
+skipped (not defaulted); a component id grepped for in `baseline-setup`'s own source **outside
+`profiles/` and `tests/fixtures/`** returns nothing (invariant 2 — the layer roster legitimately
+lives here, ADR 0004 D6).
 
 **Flip this repo to public** (`gh repo edit juangalt/baseline-setup --visibility public`) as
 part of this phase — it is private today because it carries only the migration plan. Once
@@ -207,8 +237,10 @@ On the Bluefin laptop: run `baseline-setup` end-to-end, then the parity checklis
 | `status` | per-repo statuses |
 | `install github-key` | `baseline-access` |
 | `install packages` | `baseline-shell` CLI branch + `baseline-apps` profile |
+| `install dotfiles` | `baseline-shell/bootstrap.sh` (rc blocks + `git config` wiring) |
 | `install dconf` | `baseline-desktop` |
-| `push *` | the new homes |
+| `push packages` / `push dconf` | the new homes (shell/apps · desktop) |
+| `push dotfiles` | **retired** — dropped with chezmoi, no new home |
 | `set-hostname` | fleet |
 | `recovery-key` | fleet |
 
@@ -237,6 +269,15 @@ On the Bluefin laptop: run `baseline-setup` end-to-end, then the parity checklis
    review step retained; skip GOA/keyring categories.
 5. **Laptop unbootstrappable mid-migration** → bluefin stays live and untouched until the
    Phase 7 checklist passes; all moves are additive.
+6. **Dual ownership of the laptop's dotfiles during the migration window** (ADR 0004 D4 context) →
+   "additive" holds for repos, not for the shared `~/.bashrc`/`starship.toml` that *both* bluefin's
+   chezmoi and the new `baseline-shell` manage on the one laptop. Interlock: once Phase 7 begins,
+   freeze bluefin's `install dotfiles` / `push *` (state it in the plan and in bluefin's README
+   banner at Phase 7 start).
+7. **`baseline-shell` is live fleet infrastructure** → its `bootstrap.sh --apps` is the L1 step every
+   LXC bring-up runs today, and the repo is backlog-loop-allowlisted. Keep `--apps` as a working alias
+   through Phase 8; gate Phase 2 on a real headless `--dry-run`; accept (or pause) the loop-collision
+   exposure on `baseline-shell` during Phase 2.
 
 ## Verification
 
@@ -245,9 +286,10 @@ rename regression grep (only `*/devlog/*` may still match old names). After Phas
 workspace-wide `rg baseline-bluefin ~/code` returns only devlogs, the tombstone, and
 historical ADR text.
 
-**Final proof of the whole point:** rebase the laptop to Aurora, run `baseline-desktop`
-restore + `baseline-apps --profile laptop`, confirm the shell/dev environment is intact and
-the KDE session restored; rebase back, `install gnome` restores the curated dconf state.
+**Final proof of the whole point (GNOME, per ADR 0004 D2):** rebase the laptop away from and back
+to Bluefin/GNOME, run the shell + apps components, and confirm the shell/dev environment is intact and
+`baseline-desktop install --components gnome-dconf` restores the curated dconf state. KDE/Cosmic
+SaveDesktop restore is a **post-migration follow-up**, not part of this proof.
 
 ---
 
@@ -280,8 +322,9 @@ consumer named beside it.
   | `label` | ✓ | Picker display text |
   | `desc` | | One-line help |
   | `default` | | `true` → ticked on first run (default `false`) |
-  | `requires` | | Inline table of `platform.sh` predicates: `gui = true`, `atomic = true`, `family = ["debian","fedora"]`. All must hold or the component is **hidden** (not merely unticked) |
-  | `needs` / `conflicts` | | Lists of other `id`s; `baseline-setup` resolves these before apply and refuses a contradictory selection |
+  | `requires` | | Inline table of `platform.sh` predicates: `gui = true`, `atomic = true`, `family = ["debian","fedora"]`, **`de = ["gnome"]`** (ADR 0004 D7). All must hold or the component is **hidden**. Applying a saved selection whose component is hidden here = **skip-and-report**, never error |
+  | `class` | | `toggle` (files-we-own; undone on deselect) or `install-only` (system-installed; never auto-removed). Default `install-only`. ADR 0004 D4 |
+  | `needs` / `conflicts` | | Lists of other `id`s. Picker auto-ticks `needs` transitively, refuses a selection with an active `conflict` (named-ids error); a `needs` on a `requires`-hidden component is a selection error. Standalone runs are best-effort, exempt |
 
 - **Consumer:** `baseline-setup` reads all manifests; nothing else needs to.
 
@@ -289,17 +332,22 @@ consumer named beside it.
 
 Every consumable layer's entry script honors:
 
-- `--components <csv>` — install exactly these ids (this layer's namespace only).
-- **omitted** — install the layer's `default = true` set, so the installer standalone still
-  does the sensible thing (an operator running `bootstrap.sh` directly is a supported path).
+- `--components <csv>` — install exactly these ids (this layer's namespace only). An **empty** value
+  → do nothing, exit 0 (the engine skips a fully-deselected layer; ADR 0004 D8).
+- **omitted** — install the `default = true` set. *Standalone path only* (a human running the installer
+  directly); the engine always passes `--components`, never omits it.
 - **unknown id** — exit non-zero listing the valid ids; never silently skip.
-- `--dry-run` — print the plan, change nothing.
-- Idempotent under every combination.
+- **removal** — `toggle`-class undone when absent from a re-run's selection; `install-only` never
+  auto-removed (ADR 0004 D4).
+- `--dry-run` — print the plan, change nothing. Idempotent under every combination. Reads its own
+  manifest via `python3` for the `default` set (never a duplicated in-code list).
 
 ### C4 — selection file `selected.toml`
 
 - **Home:** `~/.config/baseline-setup/selected.toml` (the active machine's record), or a named
-  `profiles/<name>.toml` addressed by `--profile <name>`.
+  `profiles/<name>.toml` (in the `baseline-setup` checkout) addressed by `--selection <name>` (error
+  if absent; a `--selection` run copies it to `selected.toml` before applying). A **missing layer
+  table means skip, never defaults** (ADR 0004 D8).
 - **Format:** one table per layer, each with a `components` array of selected ids:
 
   ```toml
@@ -310,9 +358,10 @@ Every consumable layer's entry script honors:
   components = ["profile-laptop"]
   ```
 
-- **Reproducibility:** the picker *writes* this file; the apply engine *reads* it. Every
-  install — interactive or `--profile` — leaves one, so a machine's exact component set is
-  recoverable (satisfies `meta-ai-dev/decisions/0007`).
+- **Reproducibility:** the picker *writes* this file; the apply engine *reads* it. Every install —
+  interactive or `--selection` — leaves one. It records the last *applied selection* = intent: for
+  `toggle` components tick-state equals actual state; for `install-only`, intent not a presence
+  guarantee (ADR 0004 D4). Satisfies `meta-ai-dev/decisions/0007`.
 
 ### C5 — `baseline-setup` layout & runtime sequence
 
@@ -333,15 +382,19 @@ is not on disk until the clone step — so the picker cannot run first:
 0. **Print L0 guidance** — the concise control-node / fleet-host setup instructions
    (ARCHITECTURE § L0). Informational and non-blocking; `baseline-setup` performs **no**
    enrolment.
-1. **Access** — `git clone` the *public* `baseline-access` repo and **run its script** → GitHub
-   key on disk, git-over-SSH works. Mandatory prerequisite, not a component.
-2. **Clone** the private repos (`baseline-shell`, `-apps`, `-desktop`, `meta-ai-dev`) — also
-   mandatory, not a component.
+1. **Access** — ensure `python3` present; `git clone` the *public* `baseline-access` repo and **run
+   its script** → GitHub key on disk, git-over-SSH works. Mandatory prerequisite, not a component.
+2. **Clone** the private repos (`baseline-shell`, `-apps`, `-desktop`, `meta-ai-dev`) into
+   `~/code/<repo>` — clone-if-absent, leave an existing checkout untouched (no `git pull`), report
+   which. Mandatory, not a component.
 3. **Source** `baseline-shell/platform.sh` (now present) — C1.
-4. **Read** every manifest, filter each component through `platform.sh` — C2.
-5. **Select** — gum picker (writes C4) **or** load `--profile` (reads C4).
-6. **Apply** — the engine invokes each layer's installer with its slice via C3, in the fixed
-   `L1a → L1b → L1c → L2` stage order.
+4. **Read** every manifest (via `python3`), filter each component through `platform.sh` — C2.
+5. **Bootstrap gum** (checksum-verified, per-arch) — interactive path only; on fetch/checksum
+   failure, hard error naming the `--selection … --yes` escape hatch. Skipped entirely when
+   `--selection` is given.
+6. **Select** — gum picker (writes C4) **or** load `--selection` (reads C4).
+7. **Apply** — the engine invokes each layer's installer with its slice via C3, in the fixed
+   `L1a → L1b → L1c → L2` stage order (L2 = the bare `install.sh` pseudo-component, D5).
 
 L0 guidance, access, and clone are prerequisites, never selectable components — only L1+ layers
 expose components. The picker changes *what* runs within a stage, never the stage sequence.

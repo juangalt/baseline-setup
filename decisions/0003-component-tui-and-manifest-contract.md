@@ -1,6 +1,6 @@
 # 0003 — `baseline-setup` is a component picker over per-layer manifests, not a hardcoded menu
 
-- **Status:** accepted
+- **Status:** accepted — contract gaps closed and details refined by [`0004`](0004-contract-refinements.md) (TOML+python3, `class`/`de` fields, install-only+toggle semantics, empty-selection, static roster, L2 pseudo-component, `--selection` rename; Hermes example dropped)
 - **Date:** 2026-07-20
 - **Amends:** [`0001`](0001-baseline-layer-decomposition.md) — refines the "orchestrator holds no
   layer logic" invariant into "holds no *hardcoded layer knowledge*; it renders declared
@@ -15,7 +15,7 @@ an interactive picker — tick which components of each layer to install, then i
 a good front door for a fresh laptop. It also walks straight into the invariant 0001 fought hardest
 to establish.
 
-**The trap.** A picker that *knows* "baseline-shell has {zsh, tmux, starship, hermes-aliases};
+**The trap.** A picker that *knows* "baseline-shell has {zsh, tmux, starship, atuin-init};
 baseline-apps has {these flatpaks}" is layer logic living in the orchestrator. Every time a layer
 gains a component, `baseline-setup` changes too — and the coupling three ADRs removed comes back
 through the menu. That is invariant 2 (*"holds no layer logic — fails as: the monolith reassembling
@@ -47,10 +47,11 @@ desc     = "chsh + rc wiring"
 default  = true
 
 [[component]]
-id       = "hermes-aliases"
-label    = "Hermes agent aliases"
-desc     = "shell hooks for the Hermes CLI"
+id       = "atuin-init"
+label    = "atuin shell-history hook"
+desc     = "optional shell integration (files-we-own → class = toggle)"
 default  = false
+class    = "toggle"
 
 [[component]]
 id       = "gui-flatpaks-laptop"
