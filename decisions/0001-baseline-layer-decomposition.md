@@ -77,10 +77,12 @@ Load-bearing sub-decisions:
   public repo was considered and rejected: it buys nothing over "put it in a private repo"
   and adds key management.
 - **`baseline-access` runs first, fleet promotion is explicit opt-in.** Order:
-  access → private clones → `baseline-shell` → `baseline-apps` → `baseline-desktop` →
-  `meta-ai-dev`. Control-node promotion is a flag (v1: *print* the next step rather than
-  execute it), never a default — see Constraint 2 above. Access-first also strictly helps
-  the fleet path: with the key on disk, the policy-repo clone needs no HTTPS+PAT dance.
+  clone+run public `baseline-access` → private clones → `baseline-shell` → `baseline-apps` →
+  `baseline-desktop` → `meta-ai-dev`. `baseline-setup` performs **no** L0 enrolment — it only
+  *prints* the concise control-node / fleet-host setup instructions and continues (L0 is
+  privileged and independent of the flow; the private-repo clone is gated by the Bitwarden key,
+  not by fleet enrolment). Access-first also strictly helps the fleet path: with the key on
+  disk, the policy-repo clone needs no HTTPS+PAT dance.
 - **CLI tooling is exclusively `baseline-shell`'s; `baseline-apps` is GUI-only.**
   `baseline-shell` gains an atomic-host brew branch alongside its apt/dnf/pacman path.
   `baseline-apps`' profile format has **no formula section at all**, so misfiling a CLI tool
