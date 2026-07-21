@@ -14,7 +14,7 @@ that boundary is the whole point of the repo.
 
 ## Stack
 
-- POSIX shell. No runtime deps beyond `git` (and `bw` transitively, via `baseline-access`).
+- POSIX shell + **`python3`** (TOML manifest/selection parsing, ADR 0004 D1). `git` and `bw` (transitively, via `baseline-access`) are the other prerequisites. A truly minimal LXC without python3 has it ensured by the provision path.
 - `baseline-setup.sh` — **not yet written**; lands in Phase 6 of the migration plan.
 
 ## Build / run / test

@@ -103,8 +103,8 @@ manifest *schema* and the stage *order*; the moment it knows a layer's *contents
 has failed.
 
 **Leaves behind.** A selection file (`~/.config/baseline-setup/selected.toml`, or a named
-`--profile`) — the reproducible record of what this machine chose. Nothing else; it installs nothing
-itself, it invokes each layer's own installer.
+`--selection`) — the reproducible record of what this machine chose (plus the cloned repos under
+`~/code`). It installs nothing itself; it invokes each layer's own installer.
 
 ---
 
@@ -226,23 +226,28 @@ components — metadata only, never install logic:
 | `id` | Stable component key, passed back to the layer's installer |
 | `label` / `desc` | What the picker shows |
 | `default` | Ticked on first run? |
-| `requires` | Predicate over `platform.sh` vars (`gui`, `atomic`, `family`) — auto-hides when unmet |
+| `requires` | Predicate over `platform.sh` vars (`gui`, `atomic`, `family`, `de`) — auto-hides when unmet; a saved selection whose component is hidden here is skip-and-report |
+| `class` | `toggle` (files-we-own, undone on deselect) or `install-only` (system-installed, never auto-removed; default) |
 | `needs` / `conflicts` | Other component ids |
 
 **Each layer's installer accepts `--components <id,…>`** — it already owns *how*; this is the one new
 input. The contract is two halves, both owned by the layer: it *declares* its ids and it *consumes*
-its ids. `baseline-setup` passes each layer only the ids from that layer's own manifest.
+its ids. `baseline-setup` passes each layer only the ids from that layer's own manifest, in a static
+**layer roster** (repo → entry-point → stage) that legitimately lives in `baseline-setup` — the
+roster of layers is the orchestrator's business; only component *contents* are forbidden to it
+(invariant 2). Manifests are TOML, parsed with `python3` (a bootstrap prerequisite). **L2
+(`meta-ai-dev`) is exempt** — one opt-in pseudo-component invoked as a bare `install.sh`.
 
 **One apply engine, two front-ends** — this is what makes TUI-first safe:
 
 ```
-baseline-setup                    # gum picker → writes selection → apply engine
-baseline-setup --profile laptop --yes   # apply engine directly (headless/fleet, no gum, no TTY)
+baseline-setup                       # gum picker → writes selection → apply engine
+baseline-setup --selection laptop --yes  # apply engine directly (headless/fleet, no gum, no TTY)
 ```
 
 The TUI has no install path of its own; it produces a selection file and hands it to the same engine
-`--profile` uses. gum is fetched (checksum-verified) only on the interactive path. No TTY and no
-`--profile` → a clear error, never a hang.
+`--selection` uses. gum is fetched (checksum-verified) only on the interactive path. No TTY and no
+`--selection` → a clear error, never a hang.
 
 ## Target profiles
 
@@ -260,7 +265,7 @@ easier to remember than the rule.
 
 1. **Every layer is idempotent and independently runnable.** Re-running must converge, not
    accumulate. *Fails as:* duplicated rc blocks, growing config files.
-2. **`baseline-setup` holds no *hardcoded layer knowledge*.** It renders each layer's declared
+2. **`baseline-setup` holds no *hardcoded layer knowledge* — component contents.** It renders each layer's declared
    manifest; it never names a layer's components itself. A component id hardcoded in `baseline-setup`
    is the tell. *Fails as:* the monolith reassembling itself inside the menu — every layer change
    forcing an orchestrator change. (See § Component manifest contract; [`decisions/0003`](decisions/0003-component-tui-and-manifest-contract.md).)

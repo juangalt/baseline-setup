@@ -44,14 +44,14 @@ skip rules and invariants.
 
 ```bash
 git clone <baseline-setup> && ./baseline-setup.sh          # gum picker → choose components → install
-./baseline-setup.sh --profile laptop --yes                # headless/fleet: replay a saved selection
+./baseline-setup.sh --selection laptop --yes              # headless/fleet: replay a saved selection
 ```
 
 Bare run launches a **gum** checklist of the components each layer *declares* in its own
 `manifest.toml` (grouped by layer, GUI components auto-hidden when headless). Your picks are
 written to a selection file and handed to a single apply engine that runs the stages in order:
 `baseline-access` → clone private repos over SSH → `baseline-shell` → `baseline-apps` →
-`baseline-desktop` → `meta-ai-dev`. The `--profile … --yes` path feeds the *same* engine with no
+`baseline-desktop` → `meta-ai-dev`. The `--selection … --yes` path feeds the *same* engine with no
 TUI, so interactive and automated installs can't drift. `baseline-setup` never hardcodes what a
 layer contains — it renders manifests ([`decisions/0003`](decisions/0003-component-tui-and-manifest-contract.md)).
 
