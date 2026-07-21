@@ -169,6 +169,9 @@ bare sequencer. No hardcoded layer knowledge; the private-clone step is the stru
 security gate. Sources `baseline-shell/platform.sh` to gate stages and components (headless
 skips L1b/L1c and hides `requires.gui` components). Build, in order:
 
+- **Bootstrap prefix** — print the L0 setup guidance (both paths; no enrolment), `git clone`
+  the public `baseline-access` repo and **run its script**, then clone the private repos. All
+  mandatory prerequisites, not components.
 - **Manifest reader** — parse each layer's `manifest.toml`, filter components through
   `platform.sh`.
 - **Apply engine** — invoke each layer's installer with `--components <ids>` in stage order.
@@ -327,7 +330,11 @@ tests/{bats.d,fixtures}/ # vendored bats + mock manifests + platform stubs
 **Runtime sequence (load-bearing ordering).** `platform.sh` lives in `baseline-shell`, which
 is not on disk until the clone step — so the picker cannot run first:
 
-1. **Access** — ensure git works (delegates to `baseline-access`; mandatory, not a component).
+0. **Print L0 guidance** — the concise control-node / fleet-host setup instructions
+   (ARCHITECTURE § L0). Informational and non-blocking; `baseline-setup` performs **no**
+   enrolment.
+1. **Access** — `git clone` the *public* `baseline-access` repo and **run its script** → GitHub
+   key on disk, git-over-SSH works. Mandatory prerequisite, not a component.
 2. **Clone** the private repos (`baseline-shell`, `-apps`, `-desktop`, `meta-ai-dev`) — also
    mandatory, not a component.
 3. **Source** `baseline-shell/platform.sh` (now present) — C1.
@@ -336,5 +343,5 @@ is not on disk until the clone step — so the picker cannot run first:
 6. **Apply** — the engine invokes each layer's installer with its slice via C3, in the fixed
    `L1a → L1b → L1c → L2` stage order.
 
-Access and clone are prerequisites, never selectable components — only L1+ layers expose
-components. The picker changes *what* runs within a stage, never the stage sequence.
+L0 guidance, access, and clone are prerequisites, never selectable components — only L1+ layers
+expose components. The picker changes *what* runs within a stage, never the stage sequence.

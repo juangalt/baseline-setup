@@ -42,19 +42,25 @@ Order is not arbitrary: each stage depends on the state the previous one leaves 
 **What it does.** Owns who may SSH where, host identity (hostname + Tailscale node name), and the
 recovery key. `policy.yaml` is the single source of truth; `fleet deploy` renders it onto hosts.
 
-**When it runs.** *Before* `baseline-setup`, and by two different paths depending on the target:
+**`baseline-setup` performs no enrollment.** L0 is out-of-band and privileged (a control node gets
+every service key and can deploy to others), so `baseline-setup` never runs it — it only **prints
+the concise instructions** for the two situations and continues:
 
-- **Fleet-managed hosts** (LXCs, servers, anything not your own laptop) are enrolled with
-  `fleet host add` **from an existing control node**. The machine itself does nothing.
-- **Personal machines** may self-promote with `fleet control-node bootstrap`, which is
-  self-sufficient — it does its own one-time HTTPS+PAT clone and Bitwarden login.
+```
+# Personal machine → make it a control node (run on the machine itself):
+fleet control-node bootstrap          # self-sufficient: HTTPS+PAT clone + bw login
 
-**Why `baseline-setup` doesn't do this for you.** Control-node promotion is *privileged*: the
-machine gets every service key and can deploy to other hosts. That is correct for a laptop and
-wrong for a throwaway container. Making it a default would silently over-privilege the common
-case, so it is opt-in — and in v1 `baseline-setup` only *prints* the command rather than running it.
+# Fleet host (LXC, server) → add it from an existing control node:
+fleet host add <name> --deploy        # run on a control node, not on the new host
+```
 
-**Leaves behind.** `~/.ssh/config.d/ssh-access-managed`, `authorized_keys`, host identity.
+**Why print, not run.** Making promotion automatic would silently over-privilege the common case
+(a throwaway container does not want to become a control node). L0 is also *independent* of the rest
+of the flow — the private-repo clone is gated by the Bitwarden key from L0.5, not by fleet
+enrolment — so the guidance is informational and non-blocking.
+
+**Leaves behind.** `~/.ssh/config.d/ssh-access-managed`, `authorized_keys`, host identity — once you
+follow the printed instruction. `baseline-setup` waits on nothing here.
 
 ---
 
@@ -63,6 +69,12 @@ case, so it is opt-in — and in v1 `baseline-setup` only *prints* the command r
 **What it does.** Takes a machine with **zero credentials** to one that can clone private repos:
 fetches the GitHub service key from Bitwarden, installs it, writes `known_hosts`, sets git identity,
 and verifies the result.
+
+**How `baseline-setup` invokes it.** `baseline-setup` **git-clones this public repo and runs its
+script** as its first real step — no vendoring, no library call. Because `baseline-access` is public,
+that clone needs no credentials; running its script is what *produces* the credential every later
+clone depends on. It is a separate repo precisely so it can be audited on a pinned tag independently
+of the orchestrator.
 
 **Why it is public and stays small.** It is the one thing you run *before* you have any secrets, so
 it must be auditable byte-by-byte on a pinned tag before being piped into a shell. Every feature
@@ -79,10 +91,11 @@ that dependency *is* the security boundary — see "Invariants" below.
 
 ### Orchestration (`baseline-setup`) · this repo
 
-**What it does.** Detects the platform, reads each layer's component **manifest**, renders a picker,
-and applies the selection by running the stages in order. It is a picker + sequencer, not a
-sequencer alone — but it holds **no hardcoded knowledge of what any layer contains**. See
-§ Component manifest contract below.
+**What it does.** Prints the L0 setup guidance (above; no enrolment), **clones and runs the public
+`baseline-access` script** to get the GitHub key on disk, clones the private repos, then detects the
+platform, reads each layer's component **manifest**, renders a picker, and applies the selection by
+running the stages in order. It is a picker + sequencer, not a sequencer alone — but it holds **no
+hardcoded knowledge of what any layer contains**. See § Component manifest contract below.
 
 **The boundary.** If a change here names a specific component (`tmux`, a flatpak id, a dconf key) or
 wires shell/packages/dconf directly, it belongs in a sibling repo. `baseline-setup` may know the
