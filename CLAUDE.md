@@ -31,6 +31,7 @@ This repo currently carries **documentation only**:
 | `ARCHITECTURE.md` | **Read first.** Every stage, what it does, skip rules, the platform contract, invariants |
 | `decisions/0001-baseline-layer-decomposition.md` | Why the monolith is being decomposed; the layer table; the founding decision for this repo |
 | `decisions/0002-multi-distro-multi-de.md` | Multi-distro/multi-DE as a constraint on every layer; reverses 0001's Q5 detection answer |
+| `decisions/0003-component-tui-and-manifest-contract.md` | Component picker (gum) over per-layer manifests; single apply engine |
 | `plans/baseline-decomposition.md` | The executable how — decomposition map, test-migration table, 8 phases, deletion gate |
 
 `baseline-bluefin` is still live and fully functional; nothing has been migrated yet.
@@ -43,6 +44,10 @@ This repo currently carries **documentation only**:
 - **Detection is a contract, not a copy.** `baseline-shell/platform.sh` exports
   `PLATFORM_FAMILY` / `PLATFORM_PKG` / `PLATFORM_ATOMIC` / `PLATFORM_GUI` / `PLATFORM_DE`.
   Consumers source it. Reimplementing a probe locally is the drift this design exists to stop.
+- **The picker renders manifests; it never hardcodes components.** A layer's components live in
+  that layer's `manifest.toml`. A component id written into `baseline-setup` is the monolith
+  reforming in the menu — catch it in review. One apply engine; the TUI is only a front-end
+  ([`decisions/0003-component-tui-and-manifest-contract.md`](decisions/0003-component-tui-and-manifest-contract.md)).
 - **Unsupported degrades, never crashes.** A new distro must never be a prerequisite for
   bootstrapping a machine at all.
 
