@@ -17,7 +17,13 @@
 - Scope broadened the same day by ADR 0002: **every layer is multi-distro and multi-DE**, and
   Q5's "duplicate the detection probe" answer is **reversed** in favour of a shared
   `platform.sh` contract owned by `baseline-shell`. Phases 2/3/4/6 below reflect this.
+- ADR 0003 (same day) makes `baseline-setup` a **component picker over per-layer manifests**
+  with one apply engine; the five interfaces this needs are specified in the **appendix**, and
+  each phase carries a **Done when** acceptance line.
 - **No phase has been executed yet.** `baseline-bluefin` is untouched and fully functional.
+  Cross-repo doc reconciliation (`baseline-desktop`'s CLAUDE/README, `meta-ai-dev`'s
+  `layered-bringup.md`) is deliberately deferred to the phase that ships each change — rewriting
+  them now would document a state that does not exist yet. Phase 8 is the catch-all sweep.
 
 ## Resolved: the Bitwarden item-name question
 
@@ -84,6 +90,10 @@ unbootstrappable-window risk lives here and nowhere else.
 Also lands: the Bitwarden item-name standardization (above). Keep `print_next_step`'s
 bluefin pointer until Phase 6.
 
+**Done when:** `git clone` of the new name works over both HTTPS and SSH; the pinned old
+raw-URL one-liner still resolves via redirect; `baseline-access` tests green; a workspace grep
+for `baseline-github` returns only history/devlogs.
+
 ### Phase 2 — `baseline-shell` absorb
 
 - `git config --global` wiring in `bootstrap.sh`: identity guard, gh credential helper via
@@ -103,9 +113,15 @@ bluefin pointer until Phase 6.
   the laptop) and a `PLATFORM_FAMILY=unknown` degrade-cleanly case.
 - **`manifest.toml`** declaring this layer's selectable components (zsh-default, tmux+starship,
   hermes-aliases, CLI roster tiers, …) and **`bootstrap.sh --components <ids>`** consuming
-  them, per [`../decisions/0003-component-tui-and-manifest-contract.md`](../decisions/0003-component-tui-and-manifest-contract.md).
+  them, per contract **C2**/**C3** in the appendix.
 
 Nothing here touches `baseline-bluefin` yet.
+
+**Done when:** `source platform.sh` on a Debian LXC, an atomic desktop, and a
+`PLATFORM_FAMILY=unknown` stub each exports a sane 5-var set (C1); `bootstrap.sh --components
+zsh-default,tmux-starship` installs exactly those and nothing else; `bootstrap.sh` with no
+`--components` still installs the `default = true` set; the guaranteed roster is asserted on
+every package-manager branch; headless + unknown-family tests green.
 
 ### Phase 3 — `baseline-desktop`
 
@@ -115,7 +131,12 @@ Port the dconf engine + `gnome/*.ini` + `DCONF_MAP` into a new `baseline-desktop
 the mixed data classification and add the rebase runbook. Port the two dconf bats files +
 harness. Gate the whole layer on `PLATFORM_GUI` / `PLATFORM_DE` — headless or
 untracked-DE targets **skip and report**, never error. Ship `manifest.toml` (per-DE restore,
-autostart entries; all `requires = { gui = true }`) + `--components`, per ADR 0003.
+autostart entries; all `requires = { gui = true }`) + `--components`, per contract C2/C3.
+
+**Done when:** `baseline-desktop.sh install --components gnome-dconf` reproduces the curated
+keys on a GNOME box; the same on a headless LXC exits 0 with a "skipped: no GUI" line and
+changes nothing; ported dconf bats green; `CLAUDE.md`/`README.md` state the mixed
+classification.
 
 ### Phase 4 — `baseline-apps`
 
@@ -126,13 +147,20 @@ selected profile only. Per-family **native residue** check (`rpm-ostree status -
 `apt-mark showmanual`, `pacman -Qe`, …) warning on drift both ways — the reconstruction gap
 is not rpm-ostree-specific. Structural no-formula lint. Gate on `PLATFORM_GUI`. Ship
 `manifest.toml` (profiles + notable individual apps as components, all `requires = { gui = true }`)
-+ `--components`, per ADR 0003. Tests.
++ `--components`, per contract C2/C3. Tests.
+
+**Done when:** `--profile laptop` installs the profile's flatpaks and no formulae (lint proves
+it); the native-residue check reports drift both ways on at least two package managers; a
+headless run is a clean no-op.
 
 ### Phase 5 — fleet
 
 `set-hostname` + Tailscale live-sync as a small `app-fleet-control` subcommand (semantics
 from bluefin ADR 0004: `hostnamectl` then `tailscale set --hostname`, non-fatal
 degradation) + pytest. Update the fleet skill's `SKILL.md` command table.
+
+**Done when:** the subcommand sets hostname + Tailscale name idempotently, degrades non-fatally
+when Tailscale is absent, and its pytest is green; `SKILL.md` documents it.
 
 ### Phase 6 — `baseline-setup` (the picker + apply engine)
 
@@ -153,6 +181,14 @@ skips L1b/L1c and hides `requires.gui` components). Build, in order:
 - Bats tests: mock manifests, `--profile --yes` golden run, headless auto-hide, non-TTY
   guard, and git/bw mocks for the clone step. Update `baseline-access`'s `print_next_step` to
   point here.
+
+Build against contracts **C2–C5** and the runtime sequence in the appendix.
+
+**Done when:** on a fresh box, bare `baseline-setup` clones the private repos, shows a picker
+with GUI components hidden on headless, and applies the selection in stage order; the *same*
+selection replayed via `--profile … --yes` produces a byte-identical install with no gum and no
+TTY; a non-TTY run with no `--profile` errors with the `--profile` hint instead of hanging; a
+component id grepped for in `baseline-setup`'s own source returns nothing (invariant 2).
 
 **Flip this repo to public** (`gh repo edit juangalt/baseline-setup --visibility public`) as
 part of this phase — it is private today because it carries only the migration plan. Once
@@ -209,3 +245,96 @@ historical ADR text.
 **Final proof of the whole point:** rebase the laptop to Aurora, run `baseline-desktop`
 restore + `baseline-apps --profile laptop`, confirm the shell/dev environment is intact and
 the KDE session restored; rebase back, `install gnome` restores the curated dconf state.
+
+---
+
+## Appendix — implementation contracts
+
+Five contracts an implementer builds against. The *rationale* lives in the ADRs; this is the
+concrete *shape*. They are stable interfaces — changing one is a breaking change to every
+consumer named beside it.
+
+### C1 — `platform.sh` (ADR 0002)
+
+- **Home:** `baseline-shell` repo root. **Sourced, never executed;** sourcing has no side
+  effects and is idempotent.
+- **Exports:** `PLATFORM_FAMILY` (`debian`·`fedora`·`arch`·`suse`·`unknown`), `PLATFORM_PKG`
+  (`apt`·`dnf`·`pacman`·`zypper`·`brew`·`none`), `PLATFORM_ATOMIC` (`1`/`0`), `PLATFORM_GUI`
+  (`1`/`0`), `PLATFORM_DE` (`gnome`·`kde`·`cosmic`·`other`·`none`).
+- **Degradation:** an unrecognized host sets `FAMILY=unknown`, `PKG=none`, and never errors —
+  callers branch on the values, they don't assume detection succeeded.
+- **Consumers:** `baseline-shell` (install branch), `baseline-apps`, `baseline-desktop`,
+  `baseline-setup` (component gating).
+
+### C2 — `manifest.toml` (ADR 0003)
+
+- **Home:** each consumable layer's repo root. **Metadata only — no install logic.**
+- **Schema:** an array of `[[component]]` tables:
+
+  | Field | Req | Meaning |
+  |---|---|---|
+  | `id` | ✓ | Stable key, unique within the layer, passed to the installer via C3 |
+  | `label` | ✓ | Picker display text |
+  | `desc` | | One-line help |
+  | `default` | | `true` → ticked on first run (default `false`) |
+  | `requires` | | Inline table of `platform.sh` predicates: `gui = true`, `atomic = true`, `family = ["debian","fedora"]`. All must hold or the component is **hidden** (not merely unticked) |
+  | `needs` / `conflicts` | | Lists of other `id`s; `baseline-setup` resolves these before apply and refuses a contradictory selection |
+
+- **Consumer:** `baseline-setup` reads all manifests; nothing else needs to.
+
+### C3 — installer `--components` contract
+
+Every consumable layer's entry script honors:
+
+- `--components <csv>` — install exactly these ids (this layer's namespace only).
+- **omitted** — install the layer's `default = true` set, so the installer standalone still
+  does the sensible thing (an operator running `bootstrap.sh` directly is a supported path).
+- **unknown id** — exit non-zero listing the valid ids; never silently skip.
+- `--dry-run` — print the plan, change nothing.
+- Idempotent under every combination.
+
+### C4 — selection file `selected.toml`
+
+- **Home:** `~/.config/baseline-setup/selected.toml` (the active machine's record), or a named
+  `profiles/<name>.toml` addressed by `--profile <name>`.
+- **Format:** one table per layer, each with a `components` array of selected ids:
+
+  ```toml
+  [baseline-shell]
+  components = ["zsh-default", "tmux-starship"]
+
+  [baseline-apps]
+  components = ["profile-laptop"]
+  ```
+
+- **Reproducibility:** the picker *writes* this file; the apply engine *reads* it. Every
+  install — interactive or `--profile` — leaves one, so a machine's exact component set is
+  recoverable (satisfies `meta-ai-dev/decisions/0007`).
+
+### C5 — `baseline-setup` layout & runtime sequence
+
+```
+baseline-setup.sh        # entry: arg parse + dispatch
+lib/
+  manifest.sh            # read + validate C2 manifests, resolve needs/conflicts
+  picker.sh              # gum rendering → writes C4 selection
+  apply.sh               # the apply engine (single install path)
+  gum-bootstrap.sh       # checksum-verified gum fetch, interactive path only
+profiles/                # optional committed named C4 selections
+tests/{bats.d,fixtures}/ # vendored bats + mock manifests + platform stubs
+```
+
+**Runtime sequence (load-bearing ordering).** `platform.sh` lives in `baseline-shell`, which
+is not on disk until the clone step — so the picker cannot run first:
+
+1. **Access** — ensure git works (delegates to `baseline-access`; mandatory, not a component).
+2. **Clone** the private repos (`baseline-shell`, `-apps`, `-desktop`, `meta-ai-dev`) — also
+   mandatory, not a component.
+3. **Source** `baseline-shell/platform.sh` (now present) — C1.
+4. **Read** every manifest, filter each component through `platform.sh` — C2.
+5. **Select** — gum picker (writes C4) **or** load `--profile` (reads C4).
+6. **Apply** — the engine invokes each layer's installer with its slice via C3, in the fixed
+   `L1a → L1b → L1c → L2` stage order.
+
+Access and clone are prerequisites, never selectable components — only L1+ layers expose
+components. The picker changes *what* runs within a stage, never the stage sequence.
