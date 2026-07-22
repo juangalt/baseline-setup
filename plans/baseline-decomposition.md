@@ -38,7 +38,17 @@
   `PLATFORM_DE`. `decisions/0001`, `CLAUDE.md`, `README.md` rewritten for the mixed
   recreate-from-code (GNOME)/restore-from-backup (KDE/Cosmic SaveDesktop) classification. 34/34
   tests green.
-- **Phases 4–8 not started.** `baseline-bluefin` is untouched and fully functional. Cross-repo doc
+- **Phase 4 shipped 2026-07-21** (`baseline-apps`, a new repo,
+  [#1](https://github.com/juangalt/baseline-apps/pull/1), merged): `baseline-apps.sh`
+  (`status`/`install`/`push`), flatpak-primary, gated on `PLATFORM_GUI`. `manifest.toml` (C2):
+  `profile-common`, `profile-laptop` (`needs profile-common`), `profile-handheld` (stub),
+  `app-obsidian`; all install-only (ADR 0004 D4). Native residue check (per-family, both
+  directions, starts empty) and a structural no-formula lint. `decisions/0001` records deferred
+  scope (casks, VS Code extensions — assigned to this repo by the decomposition map but not in
+  this phase's "Done when" line). 35/35 tests green. (Note: `new-repo --category baseline
+  baseline-apps` doubled the prefix to `baseline-baseline-apps` — caught and renamed before the
+  PR landed; pass just the base name after `--category`, not the already-prefixed one.)
+- **Phases 5–8 not started.** `baseline-bluefin` is untouched and fully functional. Cross-repo doc
   reconciliation (`meta-ai-dev`'s `layered-bringup.md`) is deliberately deferred to the phase that
   ships each change — rewriting it now would document a state that does not exist yet. Phase 8 is
   the catch-all sweep.
