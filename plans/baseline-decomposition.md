@@ -131,12 +131,75 @@
   risked by an automated pass); the interactive gum picker itself (needs a real TTY + human at the
   keyboard — cannot be driven through non-PTY SSH command execution); the full parity checklist
   against every `baseline-bluefin.sh` command.
+  **`baseline-apps` follow-up session (same day, 2026-07-22):** attempted the real flatpak install
+  once `fedora-x1` was back online (faked `DISPLAY` for `baselinetest` to pass the `PLATFORM_GUI`
+  gate) and hit a structural blocker instead of a bug — every one of the 39 flatpak ids across
+  `profile-common`/`profile-laptop`/`app-obsidian` was **already installed system-wide** on
+  `fedora-x1` (flatpak installs in this design have no `--user` flag, so they're visible to every
+  local account, including `baselinetest`), so the actual `flatpak install` call
+  (`baseline-apps.sh:296`) never triggered — nothing to install. Ran the safe, read-only
+  `status`/`push` subcommands instead (no gate to bypass, inherently non-mutating): both correctly
+  reported all 4 components installed, native-residue clean, and surfaced 15 real untracked
+  flatpaks on the laptop (Spotify, GIMP, Telegram, SaveDesktop, DejaDup, and others) not in any
+  manifest component — real signal, just not the install-path test that was wanted. **The
+  install-path itself (the actual `flatpak install -y --noninteractive` call) remains
+  unvalidated on real hardware** — needs either a genuinely fresh machine/account or an
+  explicit, user-approved uninstall-then-reinstall of one real app to create a gap; not attempted
+  unprompted since it would touch `felipe`'s real daily-driver flatpak state. See
+  [[2026-07-22-0941-phase7-baseline-apps-validation]].
+  **Install-path validation completed, same day, with operator's own uninstall.** User uninstalled
+  `io.github.nacho.mecalin` (`profile-laptop`) on `fedora-x1` to create a real gap. First attempt,
+  via `baselinetest` over non-interactive SSH: `install --components profile-common,profile-laptop`
+  correctly attempted the real `flatpak install`, but hit a genuine environmental wall —
+  system-wide flatpak installs require either an active polkit authentication agent (a real
+  console GUI session) or root; neither `baselinetest` nor `felipe` had passwordless sudo, so it
+  failed with "Flatpak system operation Deploy not allowed for user" even when tried directly as
+  `felipe` over SSH. The apply engine handled the real failure exactly as designed — `WARN ...
+  continuing with the rest` then a non-zero batch exit, matching the `brew` permission-failure
+  precedent from the earlier hardware run. This also surfaces a real, documented architectural
+  fact: `baseline-setup`'s non-interactive `--selection ... --yes` mode will hit the same wall for
+  any GUI machine's flatpak installs unless run at the physical console or with passwordless sudo
+  — headless/LXC targets never see it, since `baseline-apps` is GUI-gated and self-skips there.
+  User then ran `baseline-apps.sh install --components profile-common,profile-laptop` directly at
+  the real console (their own terminal, live GNOME session, real polkit password prompt) —
+  succeeded; `mecalin` confirmed reinstalled system-wide. **The full install code path
+  (attempt → real network fetch → real success) is now validated on real hardware**, closing the
+  last open item from the original "deliberately not yet done" list above.
+  **Interactive gum picker — first exercise, same day.** User ran it at a real console/TTY:
+  options rendered correctly and selections could be made. Deliberately stopped before applying
+  anything (no install triggered, no `selected.toml` written) — this confirms the picker's
+  rendering/selection UI itself works, not the full picker→apply handoff (the apply engine side
+  of that handoff was already validated non-interactively via `--selection … --yes` in Phase 6's
+  own bats suite and this session's real hardware runs). Only remaining Phase 7 item: the full
+  parity checklist against every `baseline-bluefin.sh` command.
+  **`baseline-desktop` (GNOME dconf) real-write validation — done, same day.** `baselinetest` had
+  no actual live GNOME session (a GDM session-type preference isn't a running session; `loginctl`
+  confirmed none), so rather than wait on a console login, activated a headless-but-real dconf
+  environment: faked `DISPLAY`/`XDG_CURRENT_DESKTOP`/`DESKTOP_SESSION` to pass `platform.sh`'s
+  gates, and wrapped the actual commands in `dbus-run-session` (a private session D-Bus bus —
+  `dconf load`/`read` need that, not a compositor). `status` correctly detected real drift
+  (`keybindings` differed from a fresh account's GNOME defaults); the real `install
+  --components gnome-dconf,gnome-autostart` then D-Bus-activated `ca.desrt.dconf`, wrote the
+  drifted area, and symlinked the autostart entry. Verified end to end: `dconf read` showed the
+  loaded tree, re-run `status` reported clean, `baselinetest` got its own fresh
+  `~/.config/dconf/user`, and `felipe`'s real dconf database was confirmed untouched. This closes
+  the dconf real-write gap that the prior session had explicitly deferred as unsafe to automate —
+  the headless-D-Bus approach turned out to make it safe (zero risk of a stray window in
+  `felipe`'s live session, since no compositor is involved at all).
 - **Phase 8 not started** — the catch-all sweep, gated on Phase 7 passing in full. Cross-repo doc
   reconciliation (`meta-ai-dev`'s `layered-bringup.md`) is deliberately deferred to the phase that
   ships each change — rewriting it now would document a state that does not exist yet.
-- **Next: finish Phase 7** — the remaining pieces above, then the parity checklist. Flip
-  `baseline-setup` to public before or during this phase (see above) — auditability matters most
-  right when it's about to become the thing a laptop actually bootstraps from.
+- **Next: finish Phase 7.** `baseline-shell`, `baseline-desktop`, and `baseline-apps` are all now
+  validated on real hardware (install path, dconf write, flatpak install), and the gum picker's
+  rendering/selection UI has had its first real exercise. Remaining, concretely: run
+  `baseline-shell status` and `baseline-access status` (not yet exercised against `fedora-x1`),
+  run `baseline-desktop push` (only its `install`/`status` were tested), then a final walk of
+  every `baseline-bluefin.sh` command against its replacement in the table above to catch
+  anything the decomposition map missed. `install github-key`/`set-hostname`/`recovery-key`
+  parity is already covered by Phases 1/5's own test suites, not re-tested against real hardware
+  here. Flip `baseline-setup` to public before or during this phase (see above) — auditability
+  matters most right when it's about to become the thing a laptop actually bootstraps from. Once
+  the checklist passes in full, Phase 8 (tombstone `baseline-bluefin` + doc sweep) can start.
 
 ## Resolved: the Bitwarden item-name question
 
