@@ -191,11 +191,15 @@
   ships each change — rewriting it now would document a state that does not exist yet.
 - **Next: finish Phase 7.** `baseline-shell`, `baseline-desktop`, and `baseline-apps` are all now
   validated on real hardware (install path, dconf write, flatpak install), and the gum picker's
-  rendering/selection UI has had its first real exercise. Remaining before the gate: the full
-  parity checklist against every `baseline-bluefin.sh` command (the picker→apply full handoff can
-  be confirmed as part of that pass). Flip `baseline-setup` to public before or during this phase
-  (see above) — auditability matters most right when it's about to become the thing a laptop
-  actually bootstraps from.
+  rendering/selection UI has had its first real exercise. Remaining, concretely: run
+  `baseline-shell status` and `baseline-access status` (not yet exercised against `fedora-x1`),
+  run `baseline-desktop push` (only its `install`/`status` were tested), then a final walk of
+  every `baseline-bluefin.sh` command against its replacement in the table above to catch
+  anything the decomposition map missed. `install github-key`/`set-hostname`/`recovery-key`
+  parity is already covered by Phases 1/5's own test suites, not re-tested against real hardware
+  here. Flip `baseline-setup` to public before or during this phase (see above) — auditability
+  matters most right when it's about to become the thing a laptop actually bootstraps from. Once
+  the checklist passes in full, Phase 8 (tombstone `baseline-bluefin` + doc sweep) can start.
 
 ## Resolved: the Bitwarden item-name question
 

@@ -47,8 +47,13 @@ Resume Phase 7 on `fedora-x1` where the prior session left off: validate `baseli
 
 ## Open / next
 - `baseline-apps` (flatpak), `baseline-desktop` (dconf), and `baseline-shell` (from the prior session) are now all validated end to end on real hardware — install/status/push paths and real failure-tolerance all confirmed. The gum picker's rendering/selection UI got its first real exercise too (options render, selectable) — not yet driven all the way through to an applied selection.
-- Only Phase 7 item left: the full parity checklist (`baseline-bluefin.sh` command ↔ new-layer equivalent) — not yet started. Confirming the picker's full selection→apply handoff (writing `selected.toml`, invoking the apply engine from a real picker run, not just `--selection --yes`) fits naturally inside that pass rather than as a separate step.
+- **The parity checklist (`plans/baseline-decomposition.md` Phase 7 table) — remaining rows, concretely:**
+  - `status`: not yet run for `baseline-shell status` / `baseline-access status` (only `baseline-apps status` / `baseline-desktop status` have been exercised so far).
+  - `push dconf`: `baseline-desktop push` specifically hasn't been run (only its `install`/`status` were tested this session; `baseline-apps push` was).
+  - A final walk of every `baseline-bluefin.sh` command against its documented replacement, to catch anything the decomposition map missed.
+  - `install github-key` (→ `baseline-access`), `set-hostname`/`recovery-key` (→ `app-fleet-control`) already have their own dedicated test suites from Phases 1/5 — parity confirmed there, not re-tested against `fedora-x1` this session.
 - Also worth carrying into Phase 8's sweep: `baseline-setup`'s non-interactive `--selection --yes` mode has a real, documented limit for GUI machines — flatpak system installs need an active polkit agent or root, neither available over plain non-interactive SSH without passwordless sudo. Not a bug to fix now, but should be called out in user-facing docs/README so a future non-interactive bring-up over SSH on a GUI box doesn't silently confuse someone.
+- Once the parity checklist passes in full, Phase 7 is done and Phase 8 (tombstone `baseline-bluefin` + doc sweep) can start.
 - `baselinetest` still live on `fedora-x1`, now with a populated dconf database + autostart symlink from this session's real install — untouched otherwise, no teardown this session.
 - No `BACKLOG.md` in this repo (confirmed) and this migration is explicitly kept out of every other repo's backlog per this repo's `CLAUDE.md` — skipped the backlog sweep step by design, not by oversight.
-- Git hygiene: this session's only changes are this devlog entry + a plan status update, committed directly to a worktree branch; no other stale branches/worktrees found to prune in `baseline-setup`.
+- PR #19 (this session's devlog + plan updates) is open as a draft — needs merging to `main` before the next session picks up cleanly.
