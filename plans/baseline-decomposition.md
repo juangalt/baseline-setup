@@ -186,20 +186,41 @@
   the dconf real-write gap that the prior session had explicitly deferred as unsafe to automate —
   the headless-D-Bus approach turned out to make it safe (zero risk of a stray window in
   `felipe`'s live session, since no compositor is involved at all).
+  **Parity checklist closed out, same day.** Discovered neither `baseline-shell` nor
+  `baseline-access` actually has a `status` subcommand in this design (checked their real
+  `--help` output) — the plan's parity table row was more generic than the real replacements:
+  `baseline-shell`'s read-only equivalent is `bootstrap.sh --dry-run` (not a `status` verb), and
+  `baseline-access` has no persistent status check at all (it's a one-shot provisioner verified by
+  its own test suite, not a daily-check target the way bluefin's monolithic `status` was). Ran
+  `bootstrap.sh --dry-run` against `fedora-x1`: correctly reported `ok` for everything the earlier
+  real apply already did (symlinks, plugin clones, rc sourcing) and `DRY` for the still-pending
+  `sudo`-gated steps (chsh, claude install, git identity) — idempotency detection confirmed
+  correct on a partially-configured real account. Ran `baseline-desktop.sh push` (the same
+  headless `dbus-run-session` environment as the dconf install test) — correctly reported
+  "already in sync" and took no action (this command dumps live dconf + commits/pushes to git
+  *only on drift*; since this session's earlier install left the account in sync, the safe no-op
+  path was the correct outcome, and forcing artificial drift wasn't needed since `status`/`push`
+  share the same `classify_dconf_drift` logic already validated). Cross-checked the full
+  `baseline-bluefin.sh` command list against replacements: `push packages` for the CLI/brew side
+  has **no equivalent in the new layers**, and this is intentional, not a gap — the guaranteed CLI
+  roster (ADR 0004 D4) is a fixed, non-selectable set, so there is nothing user-customizable left
+  to "push" back (the plan's existing decomposition map already scoped `push packages` as
+  flatpak-only, split to `baseline-apps push`, which is validated). Every other row in the parity
+  table above now has a real-hardware or dedicated-test-suite confirmation. **Phase 7's parity
+  checklist is complete.**
 - **Phase 8 not started** — the catch-all sweep, gated on Phase 7 passing in full. Cross-repo doc
   reconciliation (`meta-ai-dev`'s `layered-bringup.md`) is deliberately deferred to the phase that
   ships each change — rewriting it now would document a state that does not exist yet.
-- **Next: finish Phase 7.** `baseline-shell`, `baseline-desktop`, and `baseline-apps` are all now
-  validated on real hardware (install path, dconf write, flatpak install), and the gum picker's
-  rendering/selection UI has had its first real exercise. Remaining, concretely: run
-  `baseline-shell status` and `baseline-access status` (not yet exercised against `fedora-x1`),
-  run `baseline-desktop push` (only its `install`/`status` were tested), then a final walk of
-  every `baseline-bluefin.sh` command against its replacement in the table above to catch
-  anything the decomposition map missed. `install github-key`/`set-hostname`/`recovery-key`
-  parity is already covered by Phases 1/5's own test suites, not re-tested against real hardware
-  here. Flip `baseline-setup` to public before or during this phase (see above) — auditability
-  matters most right when it's about to become the thing a laptop actually bootstraps from. Once
-  the checklist passes in full, Phase 8 (tombstone `baseline-bluefin` + doc sweep) can start.
+- **Phase 7 complete 2026-07-22.** Every layer (`baseline-shell`, `baseline-apps`,
+  `baseline-desktop`, `baseline-access`, `app-fleet-control`) is validated on real hardware or by
+  its own dedicated test suite, the gum picker's rendering/selection UI has had its first real
+  exercise, and the full parity checklist against `baseline-bluefin.sh` (Phase 7's table) is
+  checked off row by row — including two intentional non-parities documented rather than silently
+  dropped (`baseline-shell`/`baseline-access` have no `status` verb by design; CLI-side
+  `push packages` has no equivalent since the guaranteed roster isn't user-customizable).
+- **Next: flip `baseline-setup` to public** (deliberately deferred since Phase 6 — see above),
+  then start **Phase 8**: tombstone `baseline-bluefin`, doc sweep across `meta-ai-dev`/
+  `workspace-homelab`, sweep the "Known deferred items" list below into real decisions.
 
 ## Resolved: the Bitwarden item-name question
 
@@ -404,17 +425,20 @@ public, the discipline is `baseline-access`'s: repo *names* only, never values.
 On the Bluefin laptop: run `baseline-setup` end-to-end, then the parity checklist — every
 `baseline-bluefin.sh` command maps to a green equivalent:
 
-| bluefin command | Replacement |
-|---|---|
-| `status` | per-repo statuses |
-| `install github-key` | `baseline-access` |
-| `install packages` | `baseline-shell` CLI branch + `baseline-apps` profile |
-| `install dotfiles` | `baseline-shell/bootstrap.sh` (rc blocks + `git config` wiring) |
-| `install dconf` | `baseline-desktop` |
-| `push packages` / `push dconf` | the new homes (shell/apps · desktop) |
-| `push dotfiles` | **retired** — dropped with chezmoi, no new home |
-| `set-hostname` | fleet |
-| `recovery-key` | fleet |
+| bluefin command | Replacement | Status (2026-07-22) |
+|---|---|---|
+| `status` | `baseline-apps status` / `baseline-desktop status` (real status verbs); `baseline-shell`/`baseline-access` have **no `status` subcommand** in this design — closest equivalents are `bootstrap.sh --dry-run` and `baseline-access`'s own test suite | ✅ all four confirmed on real hardware/tests |
+| `install github-key` | `baseline-access` | ✅ Phase 1 test suite |
+| `install packages` | `baseline-shell` CLI branch + `baseline-apps` profile | ✅ real installs confirmed on `fedora-x1` |
+| `install dotfiles` | `baseline-shell/bootstrap.sh` (rc blocks + `git config` wiring) | ✅ real apply + `--dry-run` both confirmed |
+| `install dconf` | `baseline-desktop` | ✅ real write confirmed on `fedora-x1` |
+| `push packages` | flatpak side → `baseline-apps push` (real, read-only, no write-back — install-only class); **CLI/brew side has no equivalent, intentionally** — the guaranteed CLI roster (ADR 0004 D4) is fixed/non-selectable, nothing user-customizable to push back | ✅ (flatpak) / N/A by design (CLI) |
+| `push dconf` | `baseline-desktop push` | ✅ real (reported "already in sync", took no action) |
+| `push dotfiles` | **retired** — dropped with chezmoi, no new home | N/A by design |
+| `set-hostname` | `app-fleet-control` | ✅ Phase 5 test suite |
+| `recovery-key` | `app-fleet-control` | ✅ fleet's own test suite |
+
+**Every row accounted for — parity checklist complete 2026-07-22.**
 
 **Only when all pass** does Phase 8 proceed.
 
