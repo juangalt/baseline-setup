@@ -211,9 +211,6 @@
   flatpak-only, split to `baseline-apps push`, which is validated). Every other row in the parity
   table above now has a real-hardware or dedicated-test-suite confirmation. **Phase 7's parity
   checklist is complete.**
-- **Phase 8 not started** — the catch-all sweep, gated on Phase 7 passing in full. Cross-repo doc
-  reconciliation (`meta-ai-dev`'s `layered-bringup.md`) is deliberately deferred to the phase that
-  ships each change — rewriting it now would document a state that does not exist yet.
 - **Phase 7 complete 2026-07-22.** Every layer (`baseline-shell`, `baseline-apps`,
   `baseline-desktop`, `baseline-access`, `app-fleet-control`) is validated on real hardware or by
   its own dedicated test suite, the gum picker's rendering/selection UI has had its first real
@@ -223,8 +220,28 @@
   `push packages` has no equivalent since the guaranteed roster isn't user-customizable).
 - **`baseline-setup` flipped public 2026-07-22** (operator-confirmed), immediately after Phase 7's
   parity checklist closed — see above.
-- **Next: start Phase 8** — tombstone `baseline-bluefin`, doc sweep across `meta-ai-dev`/
-  `workspace-homelab`, sweep the "Known deferred items" list below into real decisions.
+- **Phase 8 shipped 2026-07-22** (tombstone + doc sweep, the mechanical half — see below for what's
+  still an open decision). `baseline-bluefin` [PR#1](https://github.com/juangalt/baseline-bluefin/pull/1),
+  merged `ad3cf83`: README/CLAUDE rewritten as a tombstone with a full command-by-command pointer
+  table (following the `service-claude-oauth-refresh` precedent), all four ADRs annotated
+  "superseded" pointing to their successor (`baseline-access`/`baseline-desktop`/the
+  manifest+component model/`app-fleet-control`), `DISPLAYLINK.md`/`BLUEFIN-USB-INSTALL.md` moved
+  (they were never baseline user-space config), final devlog entry added. Then
+  `gh repo archive juangalt/baseline-bluefin` — confirmed `isArchived: true`.
+  `meta-ai-dev` [PR#113](https://github.com/juangalt/meta-ai-dev/pull/113), merged `ce7eff3`:
+  `decisions/0002`/`0003` updated from "phased/not-yet-executed" to "executed 2026-07-22", new
+  `baseline-*` repos added to the current-repos table. (`references/layered-bringup.md` needed no
+  change — it already pointed at `baseline-shell` for L1, never referenced `baseline-bluefin`.)
+  `workspace-homelab` [PR#207](https://github.com/juangalt/workspace-homelab/pull/207), merged
+  `f568b3a`: new `machines/fedora-x1.md` spoke absorbing the two OS/hardware runbooks verbatim
+  (post-install command block updated to point at `baseline-setup`), `machines/README.md` indexed.
+- **Not yet done — a real decision, not a mechanical step:** the "Known deferred items" list below
+  (no cask/VS-Code-extension support in `baseline-apps`, no `starship` binary install on non-brew
+  platforms in `baseline-shell`, no KDE/Cosmic dconf automation in `baseline-desktop`) needs an
+  operator call on build-now vs. defer-indefinitely vs. drop for each — not something to resolve
+  unilaterally mid-sweep. Left as-is below until that conversation happens.
+- **Next:** the deferred-items decision above is the only remaining piece of Phase 8. Once
+  resolved (or explicitly left open), the `baseline-bluefin` decomposition is fully closed.
 
 ## Resolved: the Bitwarden item-name question
 
