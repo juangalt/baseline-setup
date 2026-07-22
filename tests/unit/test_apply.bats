@@ -18,20 +18,41 @@ setup() {
 
 @test "LAYER_ROSTER names no component id (invariant 2 sanity check within apply.sh itself)" {
   # A literal grep of apply.sh's source for a real component id would be the anti-pattern
-  # ARCHITECTURE.md's "The boundary" warns against — assert the roster is repo:script pairs only.
+  # ARCHITECTURE.md's "The boundary" warns against — assert the roster is repo:script:invoke
+  # triples only (structural, never a component id).
   run bash -c "echo \"\$LAYER_ROSTER\" | grep -Eo 'comp-[a-z]+'"
   assert_failure
 }
 
-@test "apply_layer: invokes the stub installer with the visible components" {
-  run apply_layer baseline-shell bootstrap.sh "comp-a,comp-b" 0
+@test "apply_layer: invokes the flags-style stub (bootstrap.sh) with the visible components" {
+  run apply_layer baseline-shell bootstrap.sh flags "comp-a,comp-b" 0
   assert_success
   run cat "$STUB_LOG"
   assert_output --partial "baseline-shell install components=comp-a,comp-b dry=0"
 }
 
+@test "apply_layer: invokes the install-subcommand-style stub (baseline-apps.sh) with the visible components" {
+  mock_gui_platform
+  export PLATFORM_GUI PLATFORM_FAMILY PLATFORM_PKG PLATFORM_ATOMIC PLATFORM_DE
+  run apply_layer baseline-apps baseline-apps.sh install "comp-gui" 0
+  assert_success
+  run cat "$STUB_LOG"
+  assert_output --partial "baseline-apps install components=comp-gui dry=0"
+}
+
+@test "apply_layer: a flags-style script rejects an install subcommand it never asked for (regression guard)" {
+  # This is the exact shape of the real Phase 7 bug: apply_layer used to hardcode "install" for
+  # every layer, but bootstrap.sh has no subcommand — it just takes flags. Calling it with
+  # invoke=install (wrong) must fail loudly via the stub's strict rejection, proving the "flags"
+  # style is genuinely required for baseline-shell, not just cosmetically different.
+  run apply_layer baseline-shell bootstrap.sh install "comp-a" 0
+  assert_failure
+  run cat "$STUB_LOG"
+  refute_output --partial "baseline-shell"
+}
+
 @test "apply_layer: --dry-run threads through to the installer" {
-  run apply_layer baseline-shell bootstrap.sh "comp-a" 1
+  run apply_layer baseline-shell bootstrap.sh flags "comp-a" 1
   assert_success
   run cat "$STUB_LOG"
   assert_output --partial "dry=1"
@@ -40,7 +61,7 @@ setup() {
 @test "apply_layer: filters a gui-requiring component before invoking, when headless" {
   mock_headless_platform
   export PLATFORM_GUI PLATFORM_FAMILY PLATFORM_PKG PLATFORM_ATOMIC PLATFORM_DE
-  run apply_layer baseline-apps baseline-apps.sh "comp-gui" 0
+  run apply_layer baseline-apps baseline-apps.sh install "comp-gui" 0
   assert_success
   run cat "$STUB_LOG"
   assert_output --partial "components= dry=0"
@@ -48,7 +69,7 @@ setup() {
 
 @test "apply_layer: missing clone reports and returns failure, not a crash" {
   rm -rf "$CODE_ROOT_DIR/baseline-shell"
-  run apply_layer baseline-shell bootstrap.sh "comp-a" 0
+  run apply_layer baseline-shell bootstrap.sh flags "comp-a" 0
   assert_failure
   assert_output --partial "not cloned"
 }

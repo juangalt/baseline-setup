@@ -1,13 +1,10 @@
 #!/usr/bin/env bash
-# Generic stub layer installer for baseline-setup's bats fixtures. Mirrors the real
-# `install --components <csv> [--dry-run]` shape (contract C3) without doing anything: logs the
-# call to $STUB_LOG (if set) and exits 0 — unless $STUB_FAIL_REPO names this stub's own directory
-# basename, in which case it exits 1 (used for the layer-batch-failure-tolerance test).
-#
-# Not sourced/copied automatically — each fixture repo dir has its own copy under its real
-# script filename (bootstrap.sh, baseline-apps.sh, baseline-desktop.sh), identical content.
+# Stub layer installer — FLAGS style, matching the real bootstrap.sh: no subcommand, just flags
+# on the script itself (contract C3's bare `--components <csv> [--dry-run]`). Deliberately
+# STRICT — rejects anything else (including a leading "install") so a regression back to
+# hardcoding an "install" subcommand for every layer (the real Phase 7 bug this fixture exists
+# to catch) fails loudly instead of being silently tolerated.
 set -euo pipefail
-cmd="${1:-}"; shift || true
 components=""
 dry=0
 while [ $# -gt 0 ]; do
@@ -15,12 +12,12 @@ while [ $# -gt 0 ]; do
     --components) components="$2"; shift 2 ;;
     --components=*) components="${1#--components=}"; shift ;;
     --dry-run) dry=1; shift ;;
-    *) shift ;;
+    *) echo "unknown arg: $1 (bootstrap.sh takes no subcommand)" >&2; exit 2 ;;
   esac
 done
 me="$(basename "$(dirname "${BASH_SOURCE[0]}")")"
 if [ -n "${STUB_LOG:-}" ]; then
-  printf '%s %s components=%s dry=%s\n' "$me" "$cmd" "$components" "$dry" >> "$STUB_LOG"
+  printf '%s install components=%s dry=%s\n' "$me" "$components" "$dry" >> "$STUB_LOG"
 fi
 if [ "${STUB_FAIL_REPO:-}" = "$me" ]; then
   echo "stub: simulated failure for $me" >&2
