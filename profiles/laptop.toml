@@ -1,0 +1,16 @@
+# profiles/laptop.toml — example committed selection (contract C4) for a full interactive dev
+# laptop. Applied verbatim by `baseline-setup.sh --selection laptop --yes` — `needs` resolution
+# (e.g. profile-laptop needing profile-common) is a picker convenience, not something the
+# --selection path re-derives, so a committed profile must already list every needed id itself.
+
+[baseline-shell]
+components = ["zsh-default", "tmux-starship"]
+
+[baseline-apps]
+components = ["profile-common", "profile-laptop"]
+
+[baseline-desktop]
+components = ["gnome-dconf", "gnome-autostart"]
+
+[meta-ai-dev]
+enabled = true

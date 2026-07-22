@@ -1,0 +1,15 @@
+# Fixture manifest — L1a stand-in. No `requires` (visible headless and GUI alike), one component
+# `needs`-ing another (exercises resolve_needs).
+
+[[component]]
+id = "comp-a"
+label = "Component A"
+default = true
+class = "toggle"
+
+[[component]]
+id = "comp-b"
+label = "Component B"
+default = false
+class = "toggle"
+needs = ["comp-a"]

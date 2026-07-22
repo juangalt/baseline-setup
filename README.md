@@ -5,9 +5,10 @@
 **The single front door for bringing up a machine.** Orchestration only — this repo holds no
 layer logic of its own; it runs the other layers in order.
 
-> **Status: design recorded, orchestrator not yet built.** Today this repo carries the
-> decomposition ADR and migration plan. The `baseline-setup.sh` script lands in Phase 6.
-> Until then, bring-up still runs through `baseline-bluefin`, which remains fully functional.
+> **Status: orchestrator built (Phase 6), laptop cutover validation (Phase 7) not yet run.**
+> `baseline-setup.sh` + the picker/apply engine exist and are tested (bats, mocked `git`/layer
+> installers). `baseline-bluefin` remains the validated bring-up path on the laptop until Phase 7's
+> parity checklist passes — see `plans/baseline-decomposition.md`'s Status section.
 
 ## Why this exists
 
@@ -40,11 +41,12 @@ skip rules and invariants.
 | `baseline-desktop` | L1c | Per-DE session state (GNOME dconf; KDE/Cosmic archives). Skips itself when headless |
 | `meta-ai-dev` | L2 | Claude carry-down, skills, statusline |
 
-## Planned front door
+## Front door
 
 ```bash
 git clone <baseline-setup> && ./baseline-setup.sh          # gum picker → choose components → install
-./baseline-setup.sh --selection laptop --yes              # headless/fleet: replay a saved selection
+./baseline-setup.sh --selection laptop --yes               # headless/fleet: replay a committed selection
+./baseline-setup.sh --dry-run                               # print the apply plan, touch nothing
 ```
 
 Bare run launches a **gum** checklist of the components each layer *declares* in its own
@@ -73,15 +75,22 @@ Three properties are load-bearing:
 
 ## Build / run / test
 
-Nothing executable yet. When `baseline-setup.sh` lands it ships with a bats suite (mocking
-`git`/`bw`) following `baseline-access`'s vendored-harness pattern.
+POSIX-ish bash (`set -euo pipefail`) + `python3` (TOML manifest parsing via `tomllib`/`tomli`,
+ADR 0004 D1). No build step. Test:
+
+```bash
+tests/run              # full unit + integration suite (vendored bats, no submodules)
+shellcheck baseline-setup.sh lib/*.sh
+```
+
+Tests mock `git` (the clone step) and every layer's own installer (stub scripts under
+`tests/fixtures/repos/`) — nothing touches the network or a real machine. See
+`tests/fixtures/` for the mock manifest/selection shapes and `tests/helpers/` for the harness.
 
 ## Notes
 
-- **Currently private; goes public at Phase 6.** The design calls for this repo to be public
-  so its one-liner is auditable on a pinned tag before being piped into a shell — the same
-  property that makes `baseline-access` public. It stays private while it holds only the
-  migration plan, which describes fleet internals with no offsetting benefit to publishing
-  early.
+- **Currently private; goes public once Phase 6's PR lands.** The design calls for this repo to
+  be public so its one-liner is auditable on a pinned tag before being piped into a shell — the
+  same property that makes `baseline-access` public.
 - Once public, the discipline is the same as `baseline-access`: repo **names** only, never
   values.

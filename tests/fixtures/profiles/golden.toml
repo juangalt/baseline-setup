@@ -1,0 +1,13 @@
+# Fixture selection (contract C4) — used by the "--selection --yes golden run" bats test.
+
+[baseline-shell]
+components = ["comp-a", "comp-b"]
+
+[baseline-apps]
+components = ["comp-gui"]
+
+[baseline-desktop]
+components = ["comp-gnome"]
+
+[meta-ai-dev]
+enabled = true
