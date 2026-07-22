@@ -5,7 +5,7 @@ project: baseline-setup
 related:
   - plans/baseline-decomposition.md
   - [[2026-07-22-0137-phase7-real-hardware-validation]]
-status: in-progress
+status: done
 ---
 
 ## Goal
@@ -26,6 +26,8 @@ Resume Phase 7 on `fedora-x1` where the prior session left off: validate `baseli
 - Ran `baseline-desktop.sh status` under that environment as `baselinetest`: correctly detected real drift (`keybindings` area differed from a fresh account's GNOME defaults; the other 2 tracked areas already matched) and a missing autostart symlink.
 - Ran the real (non-dry) `baseline-desktop.sh install --components gnome-dconf,gnome-autostart`: `ca.desrt.dconf` D-Bus-activated correctly, `dconf load` wrote the drifted `keybindings` area, and the `com.seafile.Client.desktop` autostart symlink was created pointing into the repo checkout.
 - Verified the write persisted and was correctly isolated: `dconf read` back showed the loaded custom-keybindings tree; re-running `status` reported "all 3 area(s) in sync" and "linked"; `baselinetest`'s own `~/.config/dconf/user` (2621 bytes) was created fresh, while `felipe`'s real `~/.config/dconf/user` was confirmed untouched (still its own separate file, unmodified).
+- User uninstalled `io.github.nacho.mecalin` (`profile-laptop`) on `fedora-x1` to create a genuine install-path test gap. First attempt as `baselinetest` over non-interactive SSH failed with "Flatpak system operation Deploy not allowed for user" — confirmed this wasn't account-specific by trying the identical `flatpak install` directly as `felipe` over SSH too, same failure. Root cause: system-wide flatpak installs require either an active polkit authentication agent (a real console GUI session) or root; a non-interactive SSH session has neither, and `felipe` has no passwordless sudo (`sudo -n true` failed). The apply engine's failure handling worked exactly as designed regardless — `WARN flatpak install failed ... continuing with the rest` then a non-zero exit for the batch.
+- User then ran `baseline-apps.sh install --components profile-common,profile-laptop` directly at the real console (their own terminal, live GNOME session, real polkit password prompt) — succeeded. Verified remotely afterward: `flatpak list --app` on `fedora-x1` shows `io.github.nacho.mecalin` reinstalled.
 
 ## Decisions
 - Did not uninstall any flatpak from `fedora-x1` to manufacture a "missing app" test case — `felipe`'s daily-driver flatpaks are shared system-wide state (installs are `flatpak install` with no `--user` flag, so `baselinetest` sees everything `felipe` has), and deliberately mutating that without asking wasn't warranted for a validation pass.
@@ -36,16 +38,17 @@ Resume Phase 7 on `fedora-x1` where the prior session left off: validate `baseli
 - `status`/`push` both ran cleanly as an unprivileged, no-sudo, no-GUI-session account (`DISPLAY` faked, no real Wayland/X11 compositor) — confirms these commands need nothing beyond the `flatpak` CLI itself, matching the read-only-Q4-check design.
 - The `COMPONENT_FLATPAKS` list is accurate against reality: no drift between what the manifest declares and what's actually on the machine for the tracked profiles.
 - The `dbus-run-session` + faked-env-vars approach fully validated `baseline-desktop`'s real dconf write path end to end (drift detection → `dconf load` → `ca.desrt.dconf` activation → persisted write → clean re-read) with total isolation from `felipe`'s real GNOME session/dconf database — this was the deferred-since-last-session item and it's now closed.
+- The operator-driven uninstall-then-reinstall approach (user removed `mecalin`, ran the script themselves at the console) was exactly right for the flatpak install-path gap: it produced a real failure signal over SSH (polkit/root requirement) *and* a real success signal at the console, both genuinely informative, without me ever needing to touch `felipe`'s daily-driver flatpak state unprompted.
 
 ## What didn't work
-- The actual `flatpak install -y --noninteractive flathub "$id"` code path (`baseline-apps.sh:296`) remains completely unexercised on real hardware — every target app across all three components was already present, so no install call was ever triggered. This is a structural gap in this specific validation setup (shared system-wide flatpak state with the daily-driver account), not a code defect. A real install-path test needs either a genuinely fresh machine/account with no pre-existing flatpaks, or an explicit, asked-for uninstall of something real to create a gap — neither was done this session.
 - Confirms flatpak installs in this design are system-wide only (no `--user` remote), so `baselinetest`-vs-`felipe` isolation for flatpak specifically is weaker than for dotfiles/shell config — worth knowing going into any future install-path test (it will affect `felipe`'s real environment, not just the test account's).
+- The non-interactive-SSH install attempt (both as `baselinetest` and as `felipe` directly) failed on a real, structural constraint: system-wide flatpak installs need an active polkit auth agent or root, and neither is available over plain SSH without passwordless sudo. This isn't fixable within this session's scope — it's a real limit on how far `baseline-setup`'s non-interactive `--selection --yes` mode can go for GUI-machine flatpak installs specifically (now documented in the plan rather than silently discovered and dropped).
 
 ## Open / next
-- `baseline-apps` install-path (the actual `flatpak install` call) is still unvalidated on real hardware — needs either a fresh test machine/account or an explicit user-approved uninstall-then-reinstall of one real app on `fedora-x1` to create a genuine gap.
-- `baseline-desktop` (GNOME dconf) real-write validation is **done** this session, headless — a follow-up with an actual live/visible GNOME session for `baselinetest` (real console login) would be a stronger signal but isn't blocking; the headless path already exercises the identical `dconf load` code.
-- The interactive gum picker still has zero exercise — needs the user at a real keyboard/TTY.
-- Full parity checklist (`baseline-bluefin.sh` command ↔ new-layer equivalent) not yet started.
+- `baseline-apps` (flatpak), `baseline-desktop` (dconf), and `baseline-shell` (from the prior session) are now all validated end to end on real hardware — install/status/push paths and real failure-tolerance all confirmed. Only two Phase 7 items remain:
+  - The interactive gum picker — zero exercise so far, needs the user at a real keyboard/TTY (cannot be driven through SSH).
+  - The full parity checklist (`baseline-bluefin.sh` command ↔ new-layer equivalent) — not yet started.
+- Also worth carrying into Phase 8's sweep: `baseline-setup`'s non-interactive `--selection --yes` mode has a real, documented limit for GUI machines — flatpak system installs need an active polkit agent or root, neither available over plain non-interactive SSH without passwordless sudo. Not a bug to fix now, but should be called out in user-facing docs/README so a future non-interactive bring-up over SSH on a GUI box doesn't silently confuse someone.
 - `baselinetest` still live on `fedora-x1`, now with a populated dconf database + autostart symlink from this session's real install — untouched otherwise, no teardown this session.
 - No `BACKLOG.md` in this repo (confirmed) and this migration is explicitly kept out of every other repo's backlog per this repo's `CLAUDE.md` — skipped the backlog sweep step by design, not by oversight.
 - Git hygiene: this session's only changes are this devlog entry + a plan status update, committed directly to a worktree branch; no other stale branches/worktrees found to prune in `baseline-setup`.
