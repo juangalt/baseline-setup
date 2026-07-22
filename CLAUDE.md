@@ -34,7 +34,12 @@ This repo currently carries **documentation only**:
 | `decisions/0003-component-tui-and-manifest-contract.md` | Component picker (gum) over per-layer manifests; single apply engine |
 | `plans/baseline-decomposition.md` | The executable how — decomposition map, test-migration table, 8 phases, deletion gate |
 
-`baseline-bluefin` is still live and fully functional; nothing has been migrated yet.
+`baseline-bluefin` is still live and fully functional, untouched by the migration (by design —
+see Phase 7's cutover gate). Phases 1–4 have shipped in the *other* repos, though — `baseline-
+access` (rename), `baseline-shell` (`platform.sh`, manifest/`--components`), `baseline-desktop`
+(GNOME dconf engine), `baseline-apps` (new repo, flatpak installer). This repo itself is still
+documentation-only; Phase 6 is what gives it code. See `plans/baseline-decomposition.md`'s
+**Status** section for current phase-by-phase state — don't duplicate it here, it goes stale fast.
 
 ## Non-negotiables
 

@@ -52,6 +52,15 @@
   reconciliation (`meta-ai-dev`'s `layered-bringup.md`) is deliberately deferred to the phase that
   ships each change — rewriting it now would document a state that does not exist yet. Phase 8 is
   the catch-all sweep.
+- **Next: Phase 5 (fleet `set-hostname`, small/independent) or Phase 6 (the picker + apply
+  engine, the big one — it's the first thing to actually consume the `manifest.toml`/
+  `--components` contracts Phases 2–4 all now implement identically). Order between them doesn't
+  matter; nothing in either blocks the other.** A post-Phase-4 review (2026-07-21) added two
+  contract clarifications to the appendix below that weren't explicit before real implementations
+  existed to test them against — the C1 `platform.sh` sourcing idiom (defaults-before-source) and
+  C3's "one item's failure doesn't abort the batch" — both worth building into Phase 6 from the
+  start rather than discovering via a third code-review pass. See "Known deferred items" before
+  Phase 8 for what Phases 2–4 knowingly left out.
 
 ## Resolved: the Bitwarden item-name question
 
@@ -270,6 +279,28 @@ On the Bluefin laptop: run `baseline-setup` end-to-end, then the parity checklis
 
 **Only when all pass** does Phase 8 proceed.
 
+### Known deferred items (carried into Phase 8)
+
+Gaps documented in-repo during Phases 2–4, listed here once so Phase 8's sweep doesn't have to
+rediscover them by re-reading three repos' `decisions/`/`devlog/`. None block Phase 5/6/7 — each
+is either a real host-image edge case not yet hit, or explicitly out of the phase that shipped it.
+
+- **`baseline-apps`:** no cask support (fonts, wallpapers — needs a brew-primary path parallel to
+  `baseline-shell/apps/Brewfile.cli`'s atomic branch) and no VS Code extension install; both were
+  in the original decomposition map's `flatpak/cask/vscode → baseline-apps` row but not in Phase
+  4's "Done when" line (`decisions/0001`). zypper/SUSE native-residue check unimplemented (reports
+  "not yet implemented," never guesses).
+- **`baseline-shell`:** no supported install path for `starship` on non-brew platforms (apt/dnf/
+  pacman/zypper) — the `tmux-starship` component symlinks `starship.toml` but only the atomic/brew
+  branch's `Brewfile.cli` actually installs the binary.
+- **`baseline-desktop`:** KDE/Cosmic SaveDesktop automation stays deferred per ADR 0004 D2 —
+  `verify.sh` is still the only check for those archives; no `konsave`/`kwriteconfig`/RON-file
+  backend built yet (design exists in `decisions/0001` "Extending to other DEs", build doesn't).
+
+Sweep these into real work items (or explicitly drop them) at Phase 8, not silently — a documented
+gap left undecided past the tombstone is the implicit-gap failure mode this repo's own design
+principle warns against.
+
 ### Phase 8 — tombstone + doc sweep
 
 - `baseline-bluefin`: README/CLAUDE replaced by a pointer table to the new homes (the
@@ -334,6 +365,17 @@ consumer named beside it.
   callers branch on the values, they don't assume detection succeeded.
 - **Consumers:** `baseline-shell` (install branch), `baseline-apps`, `baseline-desktop`,
   `baseline-setup` (component gating).
+- **Sourcing idiom (validated identically in Phases 2–4; `baseline-setup` should follow it too):**
+  a consumer repo has no clone of `baseline-shell` of its own, so it sources the sibling repo's
+  copy by the fleet's fixed `~/code/<repo>` layout — `PLATFORM_SH="${BASELINE_SHELL_PLATFORM_SH:-
+  $HOME/code/baseline-shell/platform.sh}"` — overridable for tests/non-standard layouts. **All
+  five vars are defaulted headless-safe *before* the conditional `[ -r "$PLATFORM_SH" ]` source**,
+  not only in the "file missing" branch, and the source itself is guarded (`. "$PLATFORM_SH" ||
+  warn …`) — a present-but-partial or failing `platform.sh` must degrade to headless rather than
+  leaving a var unbound downstream under `set -u`, or aborting under `set -e`. A code-review pass
+  caught exactly this gap in `baseline-apps.sh` before merge (PR #1) after `baseline-desktop.sh`
+  (PR #4) had already established the pattern — worth getting right the first time in
+  `baseline-setup` itself.
 
 ### C2 — `manifest.toml` (ADR 0003)
 
@@ -365,6 +407,13 @@ Every consumable layer's entry script honors:
   auto-removed (ADR 0004 D4).
 - `--dry-run` — print the plan, change nothing. Idempotent under every combination. Reads its own
   manifest via `python3` for the `default` set (never a duplicated in-code list).
+- **One item's install failure doesn't abort the batch.** A component can list many individually
+  installable things (`baseline-apps`'s `profile-laptop` is ~40 flatpak ids); an upstream rename/
+  removal of one must not block every other item in that component *and every later component*
+  from installing. Warn and continue, accumulate failures, exit non-zero at the end if any failed.
+  Fixed in `baseline-apps.sh` per a code-review finding (PR #1, `flatpak install` was `die`-on-
+  first-failure) — apply the same shape to any future multi-item installer, including the apply
+  engine's own component-by-component loop in Phase 6.
 
 ### C4 — selection file `selected.toml`
 
