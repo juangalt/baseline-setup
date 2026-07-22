@@ -235,13 +235,15 @@
   `workspace-homelab` [PR#207](https://github.com/juangalt/workspace-homelab/pull/207), merged
   `f568b3a`: new `machines/fedora-x1.md` spoke absorbing the two OS/hardware runbooks verbatim
   (post-install command block updated to point at `baseline-setup`), `machines/README.md` indexed.
-- **Not yet done — a real decision, not a mechanical step:** the "Known deferred items" list below
-  (no cask/VS-Code-extension support in `baseline-apps`, no `starship` binary install on non-brew
-  platforms in `baseline-shell`, no KDE/Cosmic dconf automation in `baseline-desktop`) needs an
-  operator call on build-now vs. defer-indefinitely vs. drop for each — not something to resolve
-  unilaterally mid-sweep. Left as-is below until that conversation happens.
-- **Next:** the deferred-items decision above is the only remaining piece of Phase 8. Once
-  resolved (or explicitly left open), the `baseline-bluefin` decomposition is fully closed.
+- **Known deferred items — resolved 2026-07-22.** Operator chose to leave all three (no
+  cask/VS-Code-extension support in `baseline-apps`, no `starship` binary install on non-brew
+  platforms in `baseline-shell`, no KDE/Cosmic dconf automation in `baseline-desktop`) explicitly
+  deferred — not built, not scheduled, not dropped. See the "Known deferred items" section below
+  for the recorded decision. This was the last open piece of Phase 8.
+- **The `baseline-bluefin` → `baseline-*` decomposition is complete.** All 8 phases shipped,
+  validated on real hardware, and the tombstone/doc-sweep/deferred-items decision are all closed
+  out. `baseline-bluefin` is archived; `baseline-setup` is public and is the live bring-up path for
+  every machine.
 
 ## Resolved: the Bitwarden item-name question
 
@@ -484,6 +486,13 @@ is either a real host-image edge case not yet hit, or explicitly out of the phas
 Sweep these into real work items (or explicitly drop them) at Phase 8, not silently — a documented
 gap left undecided past the tombstone is the implicit-gap failure mode this repo's own design
 principle warns against.
+
+**Resolved at Phase 8 close (2026-07-22): operator chose to leave all three deferred, deliberately.**
+Not "not yet decided" — a conscious call to keep them as documented gaps rather than build,
+schedule, or drop any of the three now. Revisit only if one is actually hit in practice (e.g. a
+real need for a cask, or a non-brew-platform starship install). This satisfies the "no implicit
+gap past the tombstone" principle above: the gap is explicit and the non-decision is itself the
+decision, on record.
 
 ### Phase 8 — tombstone + doc sweep
 
