@@ -64,18 +64,50 @@
   (the original 8 plus 4 the review added: FileNotFoundError path, empty-stderr message branch,
   probe OSError arm, non-interactive-sudo argv); full suite 1335/1335 green; `ruff` clean.
   `meta-ai-dev`'s fleet `SKILL.md` command table updated.
-- **Phases 6–8 not started.** `baseline-bluefin` is untouched and fully functional. Cross-repo doc
+- **Phase 6 shipped 2026-07-22** (`baseline-setup`
+  [#14](https://github.com/juangalt/baseline-setup/pull/14), merged `dced154`): `baseline-setup.sh`
+  + `lib/{manifest,apply,gum-bootstrap,picker}.sh` — the picker + apply engine over every layer's
+  `manifest.toml`, per ADR 0003. `lib/manifest.sh` is the first generic implementation anywhere in
+  the family of the `requires = {gui,atomic,family,de}` predicate (every sibling repo hand-codes
+  its own per-component gate checks instead) — parameterized by path, since `baseline-setup` is the
+  first consumer that reads *other* repos' manifests. `lib/apply.sh`'s `LAYER_ROSTER` is
+  repo:script pairs only, never a component id (ADR 0004 D6), enforced by a grep-based test
+  (invariant 2). `lib/gum-bootstrap.sh` pins a `gum` version + sha256 per Linux x86_64/arm64 asset
+  and refuses anything unverified. `profiles/laptop.toml` is a real example committed selection.
+  60 bats tests (vendored `bats.d/`, mocked `git` + every layer's installer, no network); `shellcheck`
+  clean.
+  **Two code-review passes before merge, both catching real bugs** (the second specifically
+  verifying the first round's fixes didn't regress anything — worth doing given the size of this
+  phase): round 1 found `--dry-run` threading through to the real apply engine, which needs cloned
+  repos — on a fresh box it just reported "not cloned" for every layer and exited 1 instead of
+  previewing; fixed by making `--selection … --dry-run` call the pure, clone-free `apply_plan()`
+  and return before any bootstrap/clone/install (the interactive path still clones+picks, since
+  rendering the checklist needs live manifests, but stops before invoking any installer). Round 1
+  also added `validate_components` to `apply_layer` (an unknown/typo'd id now fails clearly
+  instead of being silently swallowed as "not applicable on this platform") and type-safety on
+  `requires.family`/`requires.de` (a bare string instead of a list no longer silently
+  substring-matches). Round 2 found the yes/confirm gate was still checked *before* the new
+  dry-run short-circuit (a pure preview could die "requires --yes" or prompt "Apply…? [y/N]"
+  despite applying nothing) — reordered — and caught a test that had gone vacuous under round 1's
+  redesign (asserted "already-cloned repo untouched" via `--dry-run`, which after round 1 no
+  longer reaches the clone code at all) — rewritten against the real, non-dry path so it actually
+  exercises what it claims to.
+  `baseline-access` [#1](https://github.com/juangalt/baseline-access/pull/1), merged `72f25b2`:
+  `print_next_step` now points most machines at `baseline-setup` (the Bluefin laptop still calls
+  out `baseline-bluefin` explicitly, since it remains the validated path there until Phase 7).
+  **`baseline-setup` stays private for now** — the plan calls for flipping it public once Phase 6's
+  code lands, but that's deliberately being done as a separate follow-up rather than bundled into
+  this phase, so a repo-visibility change doesn't ride along with a large, freshly-merged diff.
+- **Phases 7–8 not started.** `baseline-bluefin` is untouched and fully functional. Cross-repo doc
   reconciliation (`meta-ai-dev`'s `layered-bringup.md`) is deliberately deferred to the phase that
   ships each change — rewriting it now would document a state that does not exist yet. Phase 8 is
   the catch-all sweep.
-- **Next: Phase 6, the picker + apply engine — the big one, and the first thing to actually
-  consume the `manifest.toml`/`--components` contracts Phases 2–4 all now implement identically.**
-  A post-Phase-4 review (2026-07-21) added two contract clarifications to
-  the appendix below that weren't explicit before real implementations existed to test them
-  against — the C1 `platform.sh` sourcing idiom (defaults-before-source) and C3's "one item's
-  failure doesn't abort the batch" — both worth building into Phase 6 from the start rather than
-  discovering via a third code-review pass. See "Known deferred items" before Phase 8 for what
-  Phases 2–4 knowingly left out.
+- **Next: Phase 7, laptop cutover validation** — the gate for Phase 8's deletion. Run
+  `baseline-setup` end-to-end on the Bluefin laptop (this is also the first real exercise of the
+  interactive gum picker path, which has no automated test coverage — see `lib/picker.sh`'s header
+  comment), then the parity checklist against every `baseline-bluefin.sh` command. Flip
+  `baseline-setup` to public before or during this phase (see above) — auditability matters most
+  right when it's about to become the thing a laptop actually bootstraps from.
 
 ## Resolved: the Bitwarden item-name question
 
