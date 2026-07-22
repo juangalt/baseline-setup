@@ -165,6 +165,13 @@
   succeeded; `mecalin` confirmed reinstalled system-wide. **The full install code path
   (attempt → real network fetch → real success) is now validated on real hardware**, closing the
   last open item from the original "deliberately not yet done" list above.
+  **Interactive gum picker — first exercise, same day.** User ran it at a real console/TTY:
+  options rendered correctly and selections could be made. Deliberately stopped before applying
+  anything (no install triggered, no `selected.toml` written) — this confirms the picker's
+  rendering/selection UI itself works, not the full picker→apply handoff (the apply engine side
+  of that handoff was already validated non-interactively via `--selection … --yes` in Phase 6's
+  own bats suite and this session's real hardware runs). Only remaining Phase 7 item: the full
+  parity checklist against every `baseline-bluefin.sh` command.
   **`baseline-desktop` (GNOME dconf) real-write validation — done, same day.** `baselinetest` had
   no actual live GNOME session (a GDM session-type preference isn't a running session; `loginctl`
   confirmed none), so rather than wait on a console login, activated a headless-but-real dconf
@@ -183,11 +190,12 @@
   reconciliation (`meta-ai-dev`'s `layered-bringup.md`) is deliberately deferred to the phase that
   ships each change — rewriting it now would document a state that does not exist yet.
 - **Next: finish Phase 7.** `baseline-shell`, `baseline-desktop`, and `baseline-apps` are all now
-  validated on real hardware (install path, dconf write, flatpak install). Remaining before the
-  gate: the interactive gum picker (needs the user at a real keyboard/TTY — cannot be driven
-  through SSH) and the full parity checklist against every `baseline-bluefin.sh` command. Flip
-  `baseline-setup` to public before or during this phase (see above) — auditability matters most
-  right when it's about to become the thing a laptop actually bootstraps from.
+  validated on real hardware (install path, dconf write, flatpak install), and the gum picker's
+  rendering/selection UI has had its first real exercise. Remaining before the gate: the full
+  parity checklist against every `baseline-bluefin.sh` command (the picker→apply full handoff can
+  be confirmed as part of that pass). Flip `baseline-setup` to public before or during this phase
+  (see above) — auditability matters most right when it's about to become the thing a laptop
+  actually bootstraps from.
 
 ## Resolved: the Bitwarden item-name question
 
