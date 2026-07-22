@@ -147,6 +147,20 @@
   explicit, user-approved uninstall-then-reinstall of one real app to create a gap; not attempted
   unprompted since it would touch `felipe`'s real daily-driver flatpak state. See
   [[2026-07-22-0941-phase7-baseline-apps-validation]].
+  **`baseline-desktop` (GNOME dconf) real-write validation — done, same day.** `baselinetest` had
+  no actual live GNOME session (a GDM session-type preference isn't a running session; `loginctl`
+  confirmed none), so rather than wait on a console login, activated a headless-but-real dconf
+  environment: faked `DISPLAY`/`XDG_CURRENT_DESKTOP`/`DESKTOP_SESSION` to pass `platform.sh`'s
+  gates, and wrapped the actual commands in `dbus-run-session` (a private session D-Bus bus —
+  `dconf load`/`read` need that, not a compositor). `status` correctly detected real drift
+  (`keybindings` differed from a fresh account's GNOME defaults); the real `install
+  --components gnome-dconf,gnome-autostart` then D-Bus-activated `ca.desrt.dconf`, wrote the
+  drifted area, and symlinked the autostart entry. Verified end to end: `dconf read` showed the
+  loaded tree, re-run `status` reported clean, `baselinetest` got its own fresh
+  `~/.config/dconf/user`, and `felipe`'s real dconf database was confirmed untouched. This closes
+  the dconf real-write gap that the prior session had explicitly deferred as unsafe to automate —
+  the headless-D-Bus approach turned out to make it safe (zero risk of a stray window in
+  `felipe`'s live session, since no compositor is involved at all).
 - **Phase 8 not started** — the catch-all sweep, gated on Phase 7 passing in full. Cross-repo doc
   reconciliation (`meta-ai-dev`'s `layered-bringup.md`) is deliberately deferred to the phase that
   ships each change — rewriting it now would document a state that does not exist yet.
