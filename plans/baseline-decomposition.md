@@ -48,19 +48,34 @@
   this phase's "Done when" line). 35/35 tests green. (Note: `new-repo --category baseline
   baseline-apps` doubled the prefix to `baseline-baseline-apps` — caught and renamed before the
   PR landed; pass just the base name after `--category`, not the already-prefixed one.)
-- **Phases 5–8 not started.** `baseline-bluefin` is untouched and fully functional. Cross-repo doc
+- **Phase 5 shipped 2026-07-21** (`app-fleet-control`
+  [#36](https://github.com/juangalt/app-fleet-control/pull/36), merged
+  `d5002b8`; `meta-ai-dev` [#112](https://github.com/juangalt/meta-ai-dev/pull/112), merged
+  `20d742a`): `fleet set-hostname <name>` as a plain top-level command (not nested under
+  `control-node` — it's a local-machine op, not a policy mutation). `hostnamectl set-hostname` is
+  the only mandatory step; Tailscale device-name sync (`tailscale set --hostname`) is best-effort
+  and degrades to a warning — missing binary, daemon not running, or the `set` call failing all
+  leave exit 0 — matching `baseline-bluefin`'s ADR 0004 semantics. A pre-merge code-review pass
+  found two real gaps and both were fixed before merge: a missing `hostnamectl` binary raised an
+  unhandled `FileNotFoundError` instead of degrading cleanly (now caught, exit 1, matching this
+  file's own convention elsewhere); the Tailscale sync used a bare `sudo`, which can hang forever
+  on an interactive password prompt when passwordless sudo isn't configured — switched to `sudo
+  -n` + a timeout so it fails fast into the existing "run manually" warning instead. 12 tests
+  (the original 8 plus 4 the review added: FileNotFoundError path, empty-stderr message branch,
+  probe OSError arm, non-interactive-sudo argv); full suite 1335/1335 green; `ruff` clean.
+  `meta-ai-dev`'s fleet `SKILL.md` command table updated.
+- **Phases 6–8 not started.** `baseline-bluefin` is untouched and fully functional. Cross-repo doc
   reconciliation (`meta-ai-dev`'s `layered-bringup.md`) is deliberately deferred to the phase that
   ships each change — rewriting it now would document a state that does not exist yet. Phase 8 is
   the catch-all sweep.
-- **Next: Phase 5 (fleet `set-hostname`, small/independent) or Phase 6 (the picker + apply
-  engine, the big one — it's the first thing to actually consume the `manifest.toml`/
-  `--components` contracts Phases 2–4 all now implement identically). Order between them doesn't
-  matter; nothing in either blocks the other.** A post-Phase-4 review (2026-07-21) added two
-  contract clarifications to the appendix below that weren't explicit before real implementations
-  existed to test them against — the C1 `platform.sh` sourcing idiom (defaults-before-source) and
-  C3's "one item's failure doesn't abort the batch" — both worth building into Phase 6 from the
-  start rather than discovering via a third code-review pass. See "Known deferred items" before
-  Phase 8 for what Phases 2–4 knowingly left out.
+- **Next: Phase 6, the picker + apply engine — the big one, and the first thing to actually
+  consume the `manifest.toml`/`--components` contracts Phases 2–4 all now implement identically.**
+  A post-Phase-4 review (2026-07-21) added two contract clarifications to
+  the appendix below that weren't explicit before real implementations existed to test them
+  against — the C1 `platform.sh` sourcing idiom (defaults-before-source) and C3's "one item's
+  failure doesn't abort the batch" — both worth building into Phase 6 from the start rather than
+  discovering via a third code-review pass. See "Known deferred items" before Phase 8 for what
+  Phases 2–4 knowingly left out.
 
 ## Resolved: the Bitwarden item-name question
 
