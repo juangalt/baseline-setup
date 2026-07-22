@@ -137,6 +137,19 @@ run_noninteractive() {  # selection_name yes dry
   local profile="$PROFILES_DIR/$name.toml"
   [ -f "$profile" ] || die "no such selection: $PROFILES_DIR/$name.toml"
 
+  # --dry-run is a pure preview — it never applies anything, so it never needs --yes or a
+  # confirmation prompt (checked BEFORE the yes/confirm gate below, not after: gating a
+  # read-only preview behind "apply this? [y/N]" would be actively misleading). apply_plan()
+  # reads only the profile itself (no manifest.toml, no platform.sh, no clone) — "print the
+  # plan, touch nothing" means exactly that, not "run the real apply with --dry-run threaded
+  # through" (that path requires the layer repos to already be cloned, which a fresh-box
+  # preview can't assume).
+  if [ "$dry" = 1 ]; then
+    say "Apply plan for --selection $name (preview only — nothing cloned, authenticated, or installed):"
+    apply_plan "$profile"
+    return 0
+  fi
+
   if [ "$yes" != 1 ]; then
     if [ -t 0 ] && [ -t 1 ]; then
       printf 'Apply selection %s to this machine? [y/N] ' "$name"
@@ -145,16 +158,6 @@ run_noninteractive() {  # selection_name yes dry
     else
       die "--selection requires --yes when not running in a terminal"
     fi
-  fi
-
-  # --dry-run for the non-interactive path needs nothing cloned: apply_plan() reads only the
-  # profile itself (no manifest.toml, no platform.sh) — "print the plan, touch nothing" means
-  # exactly that, not "run the real apply with a --dry-run flag threaded through" (that path
-  # requires the layer repos to already be cloned, which a fresh-box preview can't assume).
-  if [ "$dry" = 1 ]; then
-    say "Apply plan for --selection $name (preview only — nothing cloned, authenticated, or installed):"
-    apply_plan "$profile"
-    return 0
   fi
 
   print_l0_guidance

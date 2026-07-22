@@ -65,11 +65,16 @@ setup() {
 }
 
 @test "an already-cloned repo is left untouched (no re-clone, no git pull)" {
+  # Deliberately NOT --dry-run: --dry-run now short-circuits before bootstrap_access/
+  # clone_private_repos ever run (see the "fresh, uncloned box" test below), so it would never
+  # exercise clone_if_absent at all — this test needs the real (non-dry) path to actually reach
+  # the code under test.
   seed_fixture_repos
+  unset BASELINE_SHELL_PLATFORM_SH
   echo "marker: pre-existing dev tree" > "$CODE_ROOT_DIR/baseline-shell/DIRTY_MARKER"
-  mock_git_clone_from_fixtures   # would overwrite if (wrongly) invoked for baseline-shell
+  mock_git_clone_from_fixtures   # would overwrite the marker if (wrongly) invoked for baseline-shell
 
-  run bash "$SCRIPT" --selection golden --yes --dry-run
+  run bash "$SCRIPT" --selection golden --yes
   assert_success
   [ -f "$CODE_ROOT_DIR/baseline-shell/DIRTY_MARKER" ]
 }
@@ -89,10 +94,22 @@ setup() {
   [ ! -f "$BASELINE_SETUP_SELECTED_FILE" ]
 }
 
-@test "--dry-run twice against the same profile produces an identical plan (no gum, no TTY)" {
-  # The Phase 6 "Done when" acceptance line, read literally: the same selection replayed via
-  # --selection … --yes must produce an identical apply plan — checked here as apply_plan()'s own
-  # ordered repo|components output, byte for byte, across two independent invocations.
+@test "--dry-run never requires --yes — a pure preview isn't gated behind apply-consent" {
+  # No --yes here at all, and no TTY (bats' run has none) — under the OLD ordering (yes/confirm
+  # gate checked before the dry-run short-circuit) this would have died with "requires --yes
+  # when not running in a terminal" despite doing nothing but printing a preview.
+  run bash "$SCRIPT" --selection golden --dry-run
+  assert_success
+  assert_output --partial "Apply plan for --selection golden"
+}
+
+@test "--selection --dry-run is deterministic across repeated invocations (no gum, no TTY)" {
+  # Scope note: this proves the --selection path is itself idempotent/deterministic (same
+  # profile in -> byte-identical apply_plan() out, every time). It does NOT exercise the
+  # interactive picker path — that needs a real TTY + gum and isn't covered by this suite (see
+  # lib/picker.sh's header comment) — so it is not, on its own, a full proof of the Phase 6
+  # "Done when" line's "interactive and --selection produce an identical apply plan" claim; it
+  # only rules out --selection itself as a source of nondeterminism.
   run bash "$SCRIPT" --selection golden --yes --dry-run
   assert_success
   local plan1="$output"
