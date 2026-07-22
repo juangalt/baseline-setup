@@ -95,9 +95,12 @@
   `baseline-access` [#1](https://github.com/juangalt/baseline-access/pull/1), merged `72f25b2`:
   `print_next_step` now points most machines at `baseline-setup` (the Bluefin laptop still calls
   out `baseline-bluefin` explicitly, since it remains the validated path there until Phase 7).
-  **`baseline-setup` stays private for now** — the plan calls for flipping it public once Phase 6's
-  code lands, but that's deliberately being done as a separate follow-up rather than bundled into
-  this phase, so a repo-visibility change doesn't ride along with a large, freshly-merged diff.
+  **`baseline-setup` stayed private through Phase 6** — the plan calls for flipping it public once
+  Phase 6's code lands, deliberately done as a separate follow-up rather than bundled into that
+  phase, so a repo-visibility change doesn't ride along with a large, freshly-merged diff.
+  **Flipped public 2026-07-22**, immediately after Phase 7's parity checklist closed out (operator
+  confirmed): `gh repo edit juangalt/baseline-setup --visibility public`. From this point the
+  discipline is `baseline-access`'s — repo *names* only in any doc, never values.
 - **Phase 7 in progress 2026-07-22.** `baseline-bluefin` is untouched and fully functional — no
   cutover yet, this is validation only. Real-hardware run on the actual Bluefin laptop
   (`fedora-x1`), via SSH into an isolated local test user (`baselinetest`, no sudo, its own
@@ -218,8 +221,9 @@
   checked off row by row — including two intentional non-parities documented rather than silently
   dropped (`baseline-shell`/`baseline-access` have no `status` verb by design; CLI-side
   `push packages` has no equivalent since the guaranteed roster isn't user-customizable).
-- **Next: flip `baseline-setup` to public** (deliberately deferred since Phase 6 — see above),
-  then start **Phase 8**: tombstone `baseline-bluefin`, doc sweep across `meta-ai-dev`/
+- **`baseline-setup` flipped public 2026-07-22** (operator-confirmed), immediately after Phase 7's
+  parity checklist closed — see above.
+- **Next: start Phase 8** — tombstone `baseline-bluefin`, doc sweep across `meta-ai-dev`/
   `workspace-homelab`, sweep the "Known deferred items" list below into real decisions.
 
 ## Resolved: the Bitwarden item-name question
