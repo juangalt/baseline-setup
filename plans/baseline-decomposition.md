@@ -131,12 +131,30 @@
   risked by an automated pass); the interactive gum picker itself (needs a real TTY + human at the
   keyboard — cannot be driven through non-PTY SSH command execution); the full parity checklist
   against every `baseline-bluefin.sh` command.
+  **`baseline-apps` follow-up session (same day, 2026-07-22):** attempted the real flatpak install
+  once `fedora-x1` was back online (faked `DISPLAY` for `baselinetest` to pass the `PLATFORM_GUI`
+  gate) and hit a structural blocker instead of a bug — every one of the 39 flatpak ids across
+  `profile-common`/`profile-laptop`/`app-obsidian` was **already installed system-wide** on
+  `fedora-x1` (flatpak installs in this design have no `--user` flag, so they're visible to every
+  local account, including `baselinetest`), so the actual `flatpak install` call
+  (`baseline-apps.sh:296`) never triggered — nothing to install. Ran the safe, read-only
+  `status`/`push` subcommands instead (no gate to bypass, inherently non-mutating): both correctly
+  reported all 4 components installed, native-residue clean, and surfaced 15 real untracked
+  flatpaks on the laptop (Spotify, GIMP, Telegram, SaveDesktop, DejaDup, and others) not in any
+  manifest component — real signal, just not the install-path test that was wanted. **The
+  install-path itself (the actual `flatpak install -y --noninteractive` call) remains
+  unvalidated on real hardware** — needs either a genuinely fresh machine/account or an
+  explicit, user-approved uninstall-then-reinstall of one real app to create a gap; not attempted
+  unprompted since it would touch `felipe`'s real daily-driver flatpak state. See
+  [[2026-07-22-0941-phase7-baseline-apps-validation]].
 - **Phase 8 not started** — the catch-all sweep, gated on Phase 7 passing in full. Cross-repo doc
   reconciliation (`meta-ai-dev`'s `layered-bringup.md`) is deliberately deferred to the phase that
   ships each change — rewriting it now would document a state that does not exist yet.
 - **Next: finish Phase 7** — the remaining pieces above, then the parity checklist. Flip
   `baseline-setup` to public before or during this phase (see above) — auditability matters most
-  right when it's about to become the thing a laptop actually bootstraps from.
+  right when it's about to become the thing a laptop actually bootstraps from. `baseline-apps`'s
+  install-path validation specifically needs an operator decision (fresh test target vs. an
+  approved uninstall-then-reinstall on `fedora-x1`) before it can proceed further.
 
 ## Resolved: the Bitwarden item-name question
 
