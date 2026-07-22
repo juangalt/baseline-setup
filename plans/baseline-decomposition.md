@@ -24,10 +24,17 @@
   GNOME-first, install-only+toggle semantics, Hermes dropped, L2 pseudo-component, static layer
   roster, `de=` predicate, empty-selection, `--selection` rename. C1–C5 and the phases below reflect
   it.
-- **No phase has been executed yet.** `baseline-bluefin` is untouched and fully functional.
-  Cross-repo doc reconciliation (`baseline-desktop`'s CLAUDE/README, `meta-ai-dev`'s
-  `layered-bringup.md`) is deliberately deferred to the phase that ships each change — rewriting
-  them now would document a state that does not exist yet. Phase 8 is the catch-all sweep.
+- **Phase 1 shipped 2026-07-20** (`baseline-access` rename, tagged `v0.2.0`; Bitwarden item
+  standardized to `fleet-policy:keys/service/github`, old item retained per D3).
+- **Phase 2 shipped 2026-07-21** (`baseline-shell` PR
+  [#15](https://github.com/juangalt/baseline-shell/pull/15), pending review/merge): `platform.sh`
+  (C1), `manifest.toml` + `bootstrap.sh --components` (C2/C3, `zsh-default`/`tmux-starship`), git
+  identity/credential wiring absorbed from `baseline-bluefin`, guaranteed-roster unconditional +
+  zypper/brew branches in `apps/baseline.sh`. Mocked tests green; `--apps` kept as a no-op alias.
+- **Phases 3–8 not started.** `baseline-bluefin` is untouched and fully functional. Cross-repo doc
+  reconciliation (`baseline-desktop`'s CLAUDE/README, `meta-ai-dev`'s `layered-bringup.md`) is
+  deliberately deferred to the phase that ships each change — rewriting them now would document a
+  state that does not exist yet. Phase 8 is the catch-all sweep.
 
 ## Resolved: the Bitwarden item-name question
 
