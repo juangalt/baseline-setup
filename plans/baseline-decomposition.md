@@ -98,14 +98,43 @@
   **`baseline-setup` stays private for now** — the plan calls for flipping it public once Phase 6's
   code lands, but that's deliberately being done as a separate follow-up rather than bundled into
   this phase, so a repo-visibility change doesn't ride along with a large, freshly-merged diff.
-- **Phases 7–8 not started.** `baseline-bluefin` is untouched and fully functional. Cross-repo doc
+- **Phase 7 in progress 2026-07-22.** `baseline-bluefin` is untouched and fully functional — no
+  cutover yet, this is validation only. Real-hardware run on the actual Bluefin laptop
+  (`fedora-x1`), via SSH into an isolated local test user (`baselinetest`, no sudo, its own
+  `$HOME`) created specifically so nothing could touch the real `felipe` account/live GNOME
+  session while validating. Cloned every layer repo (via `felipe`'s already-provisioned GitHub
+  access, since a fresh unprivileged user has no wired credentials and re-running
+  `baseline-access`'s interactive Bitwarden login for a throwaway test account wasn't warranted),
+  confirmed `--dry-run` works correctly on a genuinely fresh/uncloned account (prints the plan,
+  clones/installs nothing), then ran the real (non-dry) apply.
+  **Found and fixed a real bug** (`baseline-setup`
+  [#16](https://github.com/juangalt/baseline-setup/pull/16), merged `bc0e3f5`): the apply engine
+  hardcoded `<script> install --components <csv>` for every L1 layer, but the real
+  `baseline-shell/bootstrap.sh` has no subcommand at all (unlike `baseline-apps.sh`/
+  `baseline-desktop.sh`, which do use `install` as a subcommand alongside their own `status`/
+  `push`) — it failed with "unknown arg: install" until fixed. Phase 6's own bats fixtures never
+  caught this because the stub installers accepted both invocation shapes loosely; the fixtures
+  are now strict per-style with a dedicated regression-guard test. Re-verified against the real
+  laptop after the fix: `bootstrap.sh` ran correctly end to end (dotfile symlinks, shell rc
+  wiring, zsh plugin clones), gracefully degraded on its two `sudo`-gated steps (no password
+  available to the test user, exactly the designed fallback), and the apply engine correctly kept
+  going past a sandbox-only `brew` permission failure (test user not in the `linuxbrew` group, an
+  artifact of the isolated account, not a defect) to finish `baseline-desktop`/`meta-ai-dev` —
+  confirming the batch-failure-tolerance guarantee holds on real hardware, not just mocks.
+  `baseline-apps` (flatpak) and `baseline-desktop` (GNOME dconf) correctly auto-skipped
+  themselves, since the isolated test user has no live graphical session — both `requires =
+  {gui}`-gated, exactly as designed, not a limitation to route around.
+  **Deliberately not yet done, each for a specific reason:** `baseline-apps`'s real flatpak
+  install (~40 apps, real bandwidth/time — wants a deliberate run, not an incidental one);
+  `baseline-desktop`'s real dconf write (can only be meaningfully tested against a *live* GNOME
+  session, which the isolated test user doesn't have and `felipe`'s real session shouldn't be
+  risked by an automated pass); the interactive gum picker itself (needs a real TTY + human at the
+  keyboard — cannot be driven through non-PTY SSH command execution); the full parity checklist
+  against every `baseline-bluefin.sh` command.
+- **Phase 8 not started** — the catch-all sweep, gated on Phase 7 passing in full. Cross-repo doc
   reconciliation (`meta-ai-dev`'s `layered-bringup.md`) is deliberately deferred to the phase that
-  ships each change — rewriting it now would document a state that does not exist yet. Phase 8 is
-  the catch-all sweep.
-- **Next: Phase 7, laptop cutover validation** — the gate for Phase 8's deletion. Run
-  `baseline-setup` end-to-end on the Bluefin laptop (this is also the first real exercise of the
-  interactive gum picker path, which has no automated test coverage — see `lib/picker.sh`'s header
-  comment), then the parity checklist against every `baseline-bluefin.sh` command. Flip
+  ships each change — rewriting it now would document a state that does not exist yet.
+- **Next: finish Phase 7** — the remaining pieces above, then the parity checklist. Flip
   `baseline-setup` to public before or during this phase (see above) — auditability matters most
   right when it's about to become the thing a laptop actually bootstraps from.
 
