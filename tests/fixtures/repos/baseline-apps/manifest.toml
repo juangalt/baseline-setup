@@ -1,0 +1,8 @@
+# Fixture manifest — L1b stand-in. `requires = { gui = true }` — exercises headless auto-hide.
+
+[[component]]
+id = "comp-gui"
+label = "GUI-only component"
+default = true
+class = "install-only"
+requires = { gui = true }

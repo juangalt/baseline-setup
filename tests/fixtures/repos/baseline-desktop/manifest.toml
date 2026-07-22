@@ -1,0 +1,9 @@
+# Fixture manifest — L1c stand-in. `requires = { gui = true, de = ["gnome"] }` — exercises the
+# `de` predicate specifically, distinct from a plain `gui` gate.
+
+[[component]]
+id = "comp-gnome"
+label = "GNOME-only component"
+default = true
+class = "install-only"
+requires = { gui = true, de = ["gnome"] }
