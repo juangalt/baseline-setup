@@ -26,15 +26,22 @@
   it.
 - **Phase 1 shipped 2026-07-20** (`baseline-access` rename, tagged `v0.2.0`; Bitwarden item
   standardized to `fleet-policy:keys/service/github`, old item retained per D3).
-- **Phase 2 shipped 2026-07-21** (`baseline-shell` PR
-  [#15](https://github.com/juangalt/baseline-shell/pull/15), pending review/merge): `platform.sh`
-  (C1), `manifest.toml` + `bootstrap.sh --components` (C2/C3, `zsh-default`/`tmux-starship`), git
+- **Phase 2 shipped 2026-07-21** (`baseline-shell`
+  [#15](https://github.com/juangalt/baseline-shell/pull/15), merged): `platform.sh` (C1),
+  `manifest.toml` + `bootstrap.sh --components` (C2/C3, `zsh-default`/`tmux-starship`), git
   identity/credential wiring absorbed from `baseline-bluefin`, guaranteed-roster unconditional +
   zypper/brew branches in `apps/baseline.sh`. Mocked tests green; `--apps` kept as a no-op alias.
-- **Phases 3–8 not started.** `baseline-bluefin` is untouched and fully functional. Cross-repo doc
-  reconciliation (`baseline-desktop`'s CLAUDE/README, `meta-ai-dev`'s `layered-bringup.md`) is
-  deliberately deferred to the phase that ships each change — rewriting them now would document a
-  state that does not exist yet. Phase 8 is the catch-all sweep.
+- **Phase 3 shipped 2026-07-21** (`baseline-desktop`
+  [#4](https://github.com/juangalt/baseline-desktop/pull/4), merged): `baseline-desktop.sh`
+  (`status`/`install`/`push`) ports the GNOME dconf engine + a new `gnome-autostart` component,
+  `manifest.toml` (C2), `install --components` (C3), gated on `platform.sh`'s `PLATFORM_GUI`/
+  `PLATFORM_DE`. `decisions/0001`, `CLAUDE.md`, `README.md` rewritten for the mixed
+  recreate-from-code (GNOME)/restore-from-backup (KDE/Cosmic SaveDesktop) classification. 34/34
+  tests green.
+- **Phases 4–8 not started.** `baseline-bluefin` is untouched and fully functional. Cross-repo doc
+  reconciliation (`meta-ai-dev`'s `layered-bringup.md`) is deliberately deferred to the phase that
+  ships each change — rewriting it now would document a state that does not exist yet. Phase 8 is
+  the catch-all sweep.
 
 ## Resolved: the Bitwarden item-name question
 
